@@ -7,10 +7,17 @@ A modern project management application with interactive Gantt chart visualizati
 ## Features
 
 - 📊 **Interactive Gantt Chart** - Visualize tasks with D3.js-powered charts
-- 📅 **Multiple View Modes** - Daily, Weekly, Monthly, Quarterly views
-- 👥 **Resource Management** - Assign and track resources
+- 📅 **Multiple View Modes** - Daily, Weekly, Monthly, Quarterly views with smart scaling
+- 🗂️ **Hierarchical Task Management** - Microsoft Project-style task grouping with:
+  - Indent/Outdent tasks to create parent-child relationships
+  - WBS (Work Breakdown Structure) codes auto-generated
+  - Summary tasks with expandable/collapsible children
+  - Parent dates auto-calculated (MIN start, MAX end of children)
+  - Parent estimates auto-calculated (SUM of child estimates)
+  - Parent status auto-updated based on child statuses
+- 👥 **Resource Management** - Assign and track resources with resource-centric Gantt view
 - 📈 **Task Progress** - Track completion with bullet chart progress bars
-- 🎨 **Customizable** - Dark/Light themes, configurable date formats, bar styles
+- 🎨 **Customizable** - Dark/Light themes, configurable date formats, bar styles (default/round corners)
 - 📤 **Import/Export** - CSV import/export with conflict resolution
 - 🔗 **Task Dependencies** - Visual dependency lines between tasks
 
@@ -132,8 +139,12 @@ Access **Settings** from the header to configure:
 | DELETE | `/api/projects/<id>` | Delete a project |
 | GET | `/api/projects/<id>/tasks` | List project tasks |
 | POST | `/api/projects/<id>/tasks` | Create a task |
+| POST | `/api/projects/<id>/reorder` | Reorder tasks in project |
 | PUT | `/api/tasks/<id>` | Update a task |
 | DELETE | `/api/tasks/<id>` | Delete a task |
+| POST | `/api/tasks/<id>/indent` | Indent task (make child of previous) |
+| POST | `/api/tasks/<id>/outdent` | Outdent task (move up in hierarchy) |
+| POST | `/api/tasks/<id>/toggle-expand` | Toggle task expand/collapse state |
 | GET | `/api/settings` | Get all settings |
 | POST | `/api/resources` | Create a resource |
 | POST | `/api/statuses` | Create a status |
