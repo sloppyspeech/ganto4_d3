@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, IconButton, Tooltip, Autocomplete, Chip, Divider } from '@mui/material';
+import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, IconButton, Tooltip, Autocomplete, Chip, Divider, Menu, Checkbox, ListItemIcon, ListItemText } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -8,6 +8,7 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createTask, updateTask, deleteTask, indentTask, outdentTask, toggleTaskExpand } from '../store/slices/tasksSlice';
 import { setGanttScrollTop } from '../store/slices/uiSlice';
@@ -83,6 +84,40 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
 
     // Selected task for hierarchy operations
     const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+
+    // Column visibility state with localStorage persistence
+    const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+        const saved = localStorage.getItem('taskGridColumnVisibility');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch {
+                return {};
+            }
+        }
+        // Default: all columns visible
+        return {
+            wbs_code: true,
+            task_id: true,
+            description: true,
+            start_date: true,
+            end_date: true,
+            estimate: true,
+            status: true,
+            progress: true,
+            actions: true,
+        };
+    });
+
+    // Column menu anchor
+    const [columnMenuAnchor, setColumnMenuAnchor] = useState<null | HTMLElement>(null);
+
+    // Toggle column visibility
+    const handleToggleColumn = (field: string) => {
+        const newVisibility = { ...columnVisibility, [field]: !columnVisibility[field] };
+        setColumnVisibility(newVisibility);
+        localStorage.setItem('taskGridColumnVisibility', JSON.stringify(newVisibility));
+    };
 
     // Filter visible tasks based on parent expand state
     const visibleTasks = useMemo(() => {
@@ -419,6 +454,24 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
         },
     ];
 
+    // Column definitions for the visibility menu
+    const columnDefinitions = [
+        { field: 'wbs_code', label: 'WBS' },
+        { field: 'task_id', label: 'ID' },
+        { field: 'description', label: 'Task Name' },
+        { field: 'start_date', label: 'Start' },
+        { field: 'end_date', label: 'End' },
+        { field: 'estimate', label: 'Est. Days' },
+        { field: 'status', label: 'Status' },
+        { field: 'progress', label: 'Progress' },
+        { field: 'actions', label: 'Actions' },
+    ];
+
+    // Filter columns based on visibility
+    const filteredColumns = useMemo(() => {
+        return columns.filter(col => columnVisibility[col.field] !== false);
+    }, [columns, columnVisibility]);
+
     const renderTaskDialog = (
         open: boolean,
         onClose: () => void,
@@ -569,16 +622,48 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                         <AddIcon sx={{ fontSize: 18 }} />
                     </IconButton>
                 </Tooltip>
+                <Box sx={{ flex: 1 }} />
                 {selectedTaskId && (
-                    <Box sx={{ ml: 1, fontSize: '0.75rem', color: 'text.secondary' }}>
+                    <Box sx={{ fontSize: '0.75rem', color: 'text.secondary', mr: 1 }}>
                         Selected: {tasks.find(t => t.id === selectedTaskId)?.task_id}
                     </Box>
                 )}
+                <Tooltip title="Show/Hide Columns">
+                    <IconButton
+                        size="small"
+                        onClick={(e) => setColumnMenuAnchor(e.currentTarget)}
+                        sx={{ p: 0.5 }}
+                    >
+                        <ViewColumnIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </Tooltip>
             </Box>
+
+            {/* Column Visibility Menu */}
+            <Menu
+                anchorEl={columnMenuAnchor}
+                open={Boolean(columnMenuAnchor)}
+                onClose={() => setColumnMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                {columnDefinitions.map((col) => (
+                    <MenuItem key={col.field} onClick={() => handleToggleColumn(col.field)} dense>
+                        <ListItemIcon>
+                            <Checkbox
+                                checked={columnVisibility[col.field] !== false}
+                                size="small"
+                                sx={{ p: 0 }}
+                            />
+                        </ListItemIcon>
+                        <ListItemText primary={col.label} />
+                    </MenuItem>
+                ))}
+            </Menu>
 
             <DataGrid
                 rows={visibleTasks}
-                columns={columns}
+                columns={filteredColumns}
                 loading={loading}
                 rowHeight={ROW_HEIGHT}
                 columnHeaderHeight={HEADER_HEIGHT}

@@ -18,8 +18,9 @@ A modern project management application with interactive Gantt chart visualizati
 - 👥 **Resource Management** - Assign and track resources with resource-centric Gantt view
 - 📈 **Task Progress** - Track completion with bullet chart progress bars
 - 🎨 **Customizable** - Dark/Light themes, configurable date formats, bar styles (default/round corners)
+- 🔲 **Column Visibility** - Show/hide columns in the task grid (persists in localStorage)
 - 📤 **Import/Export** - CSV import/export with conflict resolution
-- 🔗 **Task Dependencies** - Visual dependency lines between tasks
+- 🔗 **Task Dependencies** - Visual dependency lines between tasks (two styles)
 
 ---
 

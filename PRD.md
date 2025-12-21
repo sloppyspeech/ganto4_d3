@@ -174,6 +174,11 @@ To provide an intuitive, web-based project management tool that combines the pow
 | DD-MMM-YYYY | 12-Dec-2026 |
 | (and more...) | |
 
+#### 7.4 Task Grid Column Visibility
+- Toggle columns on/off via toolbar menu
+- Available columns: WBS, ID, Task Name, Start, End, Est. Days, Status, Progress, Actions
+- Settings persisted in localStorage
+
 ---
 
 ## Technical Architecture
