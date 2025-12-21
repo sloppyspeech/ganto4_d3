@@ -39,9 +39,42 @@ export const updateTask = createAsyncThunk(
 );
 
 export const deleteTask = createAsyncThunk('tasks/delete', async (taskId: number) => {
-    await taskApi.delete(taskId);
-    return taskId;
+    const response = await taskApi.delete(taskId);
+    return response.data;  // Returns updated task list
 });
+
+// Hierarchy operations
+export const indentTask = createAsyncThunk(
+    'tasks/indent',
+    async (taskId: number) => {
+        const response = await taskApi.indent(taskId);
+        return response.data;  // Returns updated task list
+    }
+);
+
+export const outdentTask = createAsyncThunk(
+    'tasks/outdent',
+    async (taskId: number) => {
+        const response = await taskApi.outdent(taskId);
+        return response.data;  // Returns updated task list
+    }
+);
+
+export const toggleTaskExpand = createAsyncThunk(
+    'tasks/toggleExpand',
+    async (taskId: number) => {
+        const response = await taskApi.toggleExpand(taskId);
+        return response.data;  // Returns updated single task
+    }
+);
+
+export const reorderTasks = createAsyncThunk(
+    'tasks/reorder',
+    async ({ projectId, taskOrders }: { projectId: number; taskOrders: { id: number; order_index: number }[] }) => {
+        const response = await taskApi.reorder(projectId, taskOrders);
+        return response.data;  // Returns updated task list
+    }
+);
 
 const tasksSlice = createSlice({
     name: 'tasks',
@@ -69,13 +102,35 @@ const tasksSlice = createSlice({
                 state.items.push(action.payload);
             })
             .addCase(updateTask.fulfilled, (state, action) => {
+                // When status changes, backend returns all tasks; otherwise single task
+                if (Array.isArray(action.payload)) {
+                    state.items = action.payload;
+                } else {
+                    const index = state.items.findIndex((t) => t.id === action.payload.id);
+                    if (index !== -1) {
+                        state.items[index] = action.payload;
+                    }
+                }
+            })
+            // Delete now returns updated task list from backend
+            .addCase(deleteTask.fulfilled, (state, action) => {
+                state.items = action.payload;
+            })
+            // Hierarchy operations - all return updated task list
+            .addCase(indentTask.fulfilled, (state, action) => {
+                state.items = action.payload;
+            })
+            .addCase(outdentTask.fulfilled, (state, action) => {
+                state.items = action.payload;
+            })
+            .addCase(toggleTaskExpand.fulfilled, (state, action) => {
                 const index = state.items.findIndex((t) => t.id === action.payload.id);
                 if (index !== -1) {
                     state.items[index] = action.payload;
                 }
             })
-            .addCase(deleteTask.fulfilled, (state, action) => {
-                state.items = state.items.filter((t) => t.id !== action.payload);
+            .addCase(reorderTasks.fulfilled, (state, action) => {
+                state.items = action.payload;
             });
     },
 });

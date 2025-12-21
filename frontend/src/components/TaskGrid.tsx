@@ -1,11 +1,15 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, IconButton, Tooltip, Autocomplete, Chip } from '@mui/material';
+import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, IconButton, Tooltip, Autocomplete, Chip, Divider } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { createTask, updateTask, deleteTask } from '../store/slices/tasksSlice';
+import { createTask, updateTask, deleteTask, indentTask, outdentTask, toggleTaskExpand } from '../store/slices/tasksSlice';
 import { setGanttScrollTop } from '../store/slices/uiSlice';
 import type { Task, TaskCreateData } from '../api/api';
 
@@ -76,6 +80,44 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
 
     // Task options for dependency autocomplete
     const taskOptions = useMemo(() => tasks.map(t => t.task_id), [tasks]);
+
+    // Selected task for hierarchy operations
+    const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+
+    // Filter visible tasks based on parent expand state
+    const visibleTasks = useMemo(() => {
+        // Build a set of collapsed ancestor IDs
+        const collapsedParentIds = new Set(
+            tasks.filter(t => t.is_summary && !t.expanded).map(t => t.id)
+        );
+
+        // Check if any ancestor is collapsed
+        const isAncestorCollapsed = (task: Task): boolean => {
+            if (!task.parent_id) return false;
+            if (collapsedParentIds.has(task.parent_id)) return true;
+            const parent = tasks.find(t => t.id === task.parent_id);
+            return parent ? isAncestorCollapsed(parent) : false;
+        };
+
+        return tasks.filter(task => !isAncestorCollapsed(task));
+    }, [tasks]);
+
+    // Hierarchy operations
+    const handleIndent = useCallback(async () => {
+        if (selectedTaskId) {
+            await dispatch(indentTask(selectedTaskId));
+        }
+    }, [dispatch, selectedTaskId]);
+
+    const handleOutdent = useCallback(async () => {
+        if (selectedTaskId) {
+            await dispatch(outdentTask(selectedTaskId));
+        }
+    }, [dispatch, selectedTaskId]);
+
+    const handleToggleExpand = useCallback(async (taskId: number) => {
+        await dispatch(toggleTaskExpand(taskId));
+    }, [dispatch]);
 
     // Parse parent_ids string to array
     const parseParentIds = (parentIds: string | null | undefined): string[] => {
@@ -169,23 +211,71 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
 
     const columns: GridColDef[] = [
         {
+            field: 'wbs_code',
+            headerName: 'WBS',
+            width: 60,
+            sortable: false,
+            renderCell: (params: GridRenderCellParams) => (
+                <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                    {params.value || ''}
+                </Box>
+            ),
+        },
+        {
             field: 'task_id',
             headerName: 'ID',
-            width: 90,
+            width: 80,
             sortable: false,
         },
         {
             field: 'description',
-            headerName: 'Description',
+            headerName: 'Task Name',
             flex: 1,
-            minWidth: 120,
+            minWidth: 200,
             editable: true,
+            renderCell: (params: GridRenderCellParams) => {
+                const task = params.row as Task;
+                const indent = (task.level || 0) * 16;
+                return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        {/* Indentation spacer */}
+                        <Box sx={{ width: indent, flexShrink: 0 }} />
+
+                        {/* Expand/Collapse button for summary tasks */}
+                        {task.is_summary ? (
+                            <IconButton
+                                size="small"
+                                onClick={(e) => { e.stopPropagation(); handleToggleExpand(task.id); }}
+                                sx={{ p: 0.25, mr: 0.5 }}
+                            >
+                                {task.expanded ? (
+                                    <ExpandMoreIcon sx={{ fontSize: 16 }} />
+                                ) : (
+                                    <ChevronRightIcon sx={{ fontSize: 16 }} />
+                                )}
+                            </IconButton>
+                        ) : (
+                            <Box sx={{ width: 20, flexShrink: 0 }} />
+                        )}
+
+                        {/* Task name - bold for summary tasks */}
+                        <Box sx={{
+                            fontWeight: task.is_summary ? 600 : 400,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {params.value}
+                        </Box>
+                    </Box>
+                );
+            },
         },
         {
             field: 'start_date',
             headerName: 'Start',
             width: 100,
-            editable: true,
+            editable: true,  // Will be disabled for summary tasks via isCellEditable
             type: 'date',
             valueGetter: (value) => value ? new Date(value) : null,
             valueSetter: (value, row) => {
@@ -218,7 +308,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
             field: 'end_date',
             headerName: 'End',
             width: 100,
-            editable: true,
+            editable: true,  // Will be disabled for summary tasks via isCellEditable
             type: 'date',
             valueGetter: (value) => value ? new Date(value) : null,
             valueSetter: (value, row) => {
@@ -265,8 +355,16 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
             renderCell: (params: GridRenderCellParams) => {
                 const status = statuses.find((s) => s.name === params.value);
                 return (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: status?.color || '#9E9E9E' }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: '100%' }}>
+                        <Box sx={{
+                            width: 8,
+                            height: 8,
+                            minWidth: 8,
+                            minHeight: 8,
+                            flexShrink: 0,
+                            borderRadius: '50%',
+                            bgcolor: status?.color || '#9E9E9E'
+                        }} />
                         <span style={{ fontSize: '0.8rem' }}>{params.value}</span>
                     </Box>
                 );
@@ -427,14 +525,76 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.paper' }}>
+            {/* Hierarchy Toolbar */}
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                px: 1,
+                py: 0.5,
+                borderBottom: '1px solid rgba(99, 102, 241, 0.15)',
+                bgcolor: 'rgba(99, 102, 241, 0.03)'
+            }}>
+                <Tooltip title="Indent Task (Make child of task above)">
+                    <span>
+                        <IconButton
+                            size="small"
+                            onClick={handleIndent}
+                            disabled={!selectedTaskId}
+                            sx={{ p: 0.5 }}
+                        >
+                            <KeyboardArrowRightIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+                <Tooltip title="Outdent Task (Move up one level)">
+                    <span>
+                        <IconButton
+                            size="small"
+                            onClick={handleOutdent}
+                            disabled={!selectedTaskId}
+                            sx={{ p: 0.5 }}
+                        >
+                            <KeyboardArrowLeftIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                <Tooltip title="Add Task">
+                    <IconButton
+                        size="small"
+                        onClick={() => setAddDialogOpen(true)}
+                        sx={{ p: 0.5, color: 'success.main' }}
+                    >
+                        <AddIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </Tooltip>
+                {selectedTaskId && (
+                    <Box sx={{ ml: 1, fontSize: '0.75rem', color: 'text.secondary' }}>
+                        Selected: {tasks.find(t => t.id === selectedTaskId)?.task_id}
+                    </Box>
+                )}
+            </Box>
+
             <DataGrid
-                rows={tasks}
+                rows={visibleTasks}
                 columns={columns}
                 loading={loading}
                 rowHeight={ROW_HEIGHT}
                 columnHeaderHeight={HEADER_HEIGHT}
-                disableRowSelectionOnClick
                 hideFooter
+                rowSelectionModel={selectedTaskId ? { type: 'include', ids: new Set([selectedTaskId]) } : { type: 'include', ids: new Set() }}
+                onRowSelectionModelChange={(newSelection) => {
+                    const ids = Array.from(newSelection.ids);
+                    setSelectedTaskId(ids.length > 0 ? ids[0] as number : null);
+                }}
+                isCellEditable={(params) => {
+                    // Disable editing dates and estimate for summary tasks
+                    if (params.row.is_summary && ['start_date', 'end_date', 'estimate'].includes(params.field)) {
+                        return false;
+                    }
+                    return true;
+                }}
                 processRowUpdate={(newRow, oldRow) => {
                     const changedField = Object.keys(newRow).find(
                         (key) => newRow[key as keyof typeof newRow] !== oldRow[key as keyof typeof oldRow]
@@ -473,6 +633,10 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                         maxHeight: `${HEADER_HEIGHT}px !important`,
                     },
                     '& .MuiDataGrid-row:hover': { bgcolor: 'rgba(99, 102, 241, 0.05)' },
+                    '& .MuiDataGrid-row.Mui-selected': {
+                        bgcolor: 'rgba(99, 102, 241, 0.12)',
+                        '&:hover': { bgcolor: 'rgba(99, 102, 241, 0.15)' }
+                    },
                     '& .MuiDataGrid-virtualScroller': { overflowY: 'auto' },
                 }}
             />

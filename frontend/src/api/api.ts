@@ -26,9 +26,15 @@ export const taskApi = {
     get: (taskId: number) => api.get(`/tasks/${taskId}`),
     create: (projectId: number, data: TaskCreateData) =>
         api.post(`/projects/${projectId}/tasks`, data),
-    update: (taskId: number, data: Partial<TaskCreateData>) =>
+    update: (taskId: number, data: Partial<TaskCreateData & { expanded?: boolean }>) =>
         api.put(`/tasks/${taskId}`, data),
     delete: (taskId: number) => api.delete(`/tasks/${taskId}`),
+    // Hierarchy operations
+    indent: (taskId: number) => api.post(`/tasks/${taskId}/indent`),
+    outdent: (taskId: number) => api.post(`/tasks/${taskId}/outdent`),
+    toggleExpand: (taskId: number) => api.post(`/tasks/${taskId}/toggle-expand`),
+    reorder: (projectId: number, taskOrders: { id: number; order_index: number }[]) =>
+        api.post(`/projects/${projectId}/reorder`, { task_orders: taskOrders }),
 };
 
 // Settings API
@@ -70,7 +76,12 @@ export interface Task {
     resource: string | null;
     status: string;
     task_type: string;
-    parent_ids: string | null;
+    parent_ids: string | null;  // Dependencies (predecessor task IDs)
+    parent_id: number | null;   // Hierarchical parent task ID
+    level: number;              // Nesting depth (0 = top-level)
+    wbs_code: string | null;    // WBS code e.g., "1.2.1"
+    is_summary: boolean;        // True if task has children
+    expanded: boolean;          // Collapse/expand state for UI
     progress: number;
     project_id: number;
     order_index: number;

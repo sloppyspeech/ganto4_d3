@@ -44,7 +44,7 @@ class Project(db.Model):
 
 
 class Task(db.Model):
-    """Task model for storing task details"""
+    """Task model for storing task details with hierarchical support"""
     id = db.Column(db.Integer, primary_key=True)
     task_id = db.Column(db.String(20), nullable=False)  # e.g., MIG-001
     description = db.Column(db.Text, nullable=False)
@@ -54,11 +54,21 @@ class Task(db.Model):
     resource = db.Column(db.String(100))
     status = db.Column(db.String(50), default='Not Started')
     task_type = db.Column(db.String(20), default='Task')  # Task or Milestone
-    parent_ids = db.Column(db.String(200))  # Comma-separated parent task IDs
+    parent_ids = db.Column(db.String(200))  # Comma-separated dependency task IDs (predecessors)
     progress = db.Column(db.Integer, default=0)  # Progress percentage 0-100
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     order_index = db.Column(db.Integer, default=0)
+    
+    # Hierarchy fields for WBS (Work Breakdown Structure)
+    parent_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=True)  # Hierarchical parent
+    level = db.Column(db.Integer, default=0)  # Nesting depth (0 = top-level)
+    wbs_code = db.Column(db.String(50), nullable=True)  # e.g., "1.2.1" for sorting/display
+    is_summary = db.Column(db.Boolean, default=False)  # True = has children (Summary Task)
+    expanded = db.Column(db.Boolean, default=True)  # UI collapse/expand state
+    
+    # Self-referential relationship for hierarchy
+    children = db.relationship('Task', backref=db.backref('parent', remote_side=[id]), lazy='dynamic')
 
     def to_dict(self):
         return {
@@ -74,7 +84,12 @@ class Task(db.Model):
             'parent_ids': self.parent_ids,
             'progress': self.progress or 0,
             'project_id': self.project_id,
-            'order_index': self.order_index
+            'order_index': self.order_index,
+            'parent_id': self.parent_id,
+            'level': self.level or 0,
+            'wbs_code': self.wbs_code,
+            'is_summary': self.is_summary or False,
+            'expanded': self.expanded if self.expanded is not None else True
         }
 
 
@@ -120,6 +135,211 @@ class TaskType(db.Model):
             'id': self.id,
             'name': self.name
         }
+
+
+# =============================================================================
+# API ROUTES - PROJECTS
+# =============================================================================
+
+# =============================================================================
+# HIERARCHY HELPER FUNCTIONS
+# =============================================================================
+
+def recalculate_summary_dates(project_id):
+    """
+    Bottom-up recalculation of summary task dates.
+    For each summary task, compute:
+    - start_date = MIN(children.start_date)
+    - end_date = MAX(children.end_date)
+    - estimate = working days between start and end
+    """
+    tasks = Task.query.filter_by(project_id=project_id).all()
+    task_dict = {t.id: t for t in tasks}
+    
+    # Build parent-children map
+    children_map = {}
+    for t in tasks:
+        if t.parent_id:
+            if t.parent_id not in children_map:
+                children_map[t.parent_id] = []
+            children_map[t.parent_id].append(t)
+    
+    # Get all tasks that have children (summary tasks)
+    summary_ids = set(children_map.keys())
+    
+    # Process from deepest level up
+    def get_date_range(task_id):
+        """Recursively get min start and max end for a task including all descendants"""
+        task = task_dict.get(task_id)
+        if not task:
+            return None, None
+        
+        children = children_map.get(task_id, [])
+        if not children:
+            # Leaf task - return its own dates
+            return task.start_date, task.end_date
+        
+        # For summary tasks, calculate dates PURELY from children (not own dates)
+        min_start = None
+        max_end = None
+        
+        for child in children:
+            child_start, child_end = get_date_range(child.id)
+            if child_start:
+                if min_start is None or child_start < min_start:
+                    min_start = child_start
+            if child_end:
+                if max_end is None or child_end > max_end:
+                    max_end = child_end
+        
+        return min_start, max_end
+    
+    def get_total_estimate(task_id):
+        """Recursively get total estimate for a task (sum of all descendants)"""
+        task = task_dict.get(task_id)
+        if not task:
+            return 0
+        
+        children = children_map.get(task_id, [])
+        if not children:
+            # Leaf task - return its own estimate
+            return task.estimate or 0
+        
+        # Sum estimates from all children
+        total = 0
+        for child in children:
+            total += get_total_estimate(child.id)
+        return total
+    
+    # Update all summary tasks
+    for summary_id in summary_ids:
+        summary_task = task_dict.get(summary_id)
+        if summary_task:
+            min_start, max_end = get_date_range(summary_id)
+            if min_start and max_end:
+                summary_task.start_date = min_start
+                summary_task.end_date = max_end
+            # Calculate estimate as SUM of child estimates (not date difference)
+            summary_task.estimate = get_total_estimate(summary_id)
+            summary_task.is_summary = True
+    
+    db.session.commit()
+
+
+def update_wbs_codes(project_id):
+    """
+    Update WBS codes for all tasks in a project.
+    Top-level tasks get "1", "2", etc.
+    Children get "1.1", "1.2", "2.1", etc.
+    """
+    tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    
+    # Build hierarchy
+    root_tasks = [t for t in tasks if t.parent_id is None]
+    children_map = {}
+    for t in tasks:
+        if t.parent_id:
+            if t.parent_id not in children_map:
+                children_map[t.parent_id] = []
+            children_map[t.parent_id].append(t)
+    
+    def assign_wbs(task_list, prefix=''):
+        for idx, task in enumerate(task_list, 1):
+            wbs = f"{prefix}{idx}" if prefix else str(idx)
+            task.wbs_code = wbs
+            children = children_map.get(task.id, [])
+            if children:
+                task.is_summary = True
+                assign_wbs(children, f"{wbs}.")
+            else:
+                task.is_summary = False
+    
+    assign_wbs(root_tasks)
+    db.session.commit()
+
+
+def recalculate_order_indices(project_id):
+    """
+    Recalculate order_index for all tasks to maintain proper tree order.
+    Uses depth-first traversal to assign indices.
+    """
+    tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    
+    # Build hierarchy
+    root_tasks = [t for t in tasks if t.parent_id is None]
+    children_map = {}
+    for t in tasks:
+        if t.parent_id:
+            if t.parent_id not in children_map:
+                children_map[t.parent_id] = []
+            children_map[t.parent_id].append(t)
+    
+    # Sort children by current order_index
+    for children in children_map.values():
+        children.sort(key=lambda x: x.order_index)
+    root_tasks.sort(key=lambda x: x.order_index)
+    
+    def assign_order(task_list, counter=0):
+        for task in task_list:
+            task.order_index = counter
+            counter += 1
+            children = children_map.get(task.id, [])
+            if children:
+                counter = assign_order(children, counter)
+        return counter
+    
+    assign_order(root_tasks)
+    db.session.commit()
+
+
+def recalculate_summary_status(project_id):
+    """
+    Recalculate status for summary tasks based on children status.
+    Rules:
+    - If any child is "In Progress", parent becomes "In Progress"
+    - If all children are "Complete", parent becomes "Complete"
+    - If all children are "Not Started", parent stays "Not Started"
+    """
+    tasks = Task.query.filter_by(project_id=project_id).all()
+    
+    # Build hierarchy
+    children_map = {}
+    for t in tasks:
+        if t.parent_id:
+            if t.parent_id not in children_map:
+                children_map[t.parent_id] = []
+            children_map[t.parent_id].append(t)
+    
+    # Process summary tasks (bottom-up by traversing children first - handled by recursion)
+    def update_parent_status(task):
+        children = children_map.get(task.id, [])
+        if not children:
+            return
+        
+        # First update nested children
+        for child in children:
+            update_parent_status(child)
+        
+        # Get child statuses
+        child_statuses = [c.status for c in children]
+        
+        # Determine parent status based on children
+        if 'In Progress' in child_statuses:
+            task.status = 'In Progress'
+        elif all(s == 'Complete' for s in child_statuses):
+            task.status = 'Complete'
+        elif all(s == 'Not Started' for s in child_statuses):
+            task.status = 'Not Started'
+        else:
+            # Mixed status (some complete, some not started) - set to In Progress
+            task.status = 'In Progress'
+    
+    # Process all root tasks
+    root_tasks = [t for t in tasks if t.parent_id is None]
+    for task in root_tasks:
+        update_parent_status(task)
+    
+    db.session.commit()
 
 
 # =============================================================================
@@ -235,6 +455,12 @@ def create_task(project_id):
     db.session.add(task)
     db.session.commit()
     
+    # Update WBS codes for the project
+    update_wbs_codes(project_id)
+    
+    # Reload task to get updated wbs_code
+    db.session.refresh(task)
+    
     return jsonify(task.to_dict()), 201
 
 
@@ -247,18 +473,29 @@ def get_task(task_id):
 
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
 def update_task(task_id):
-    """Update a task"""
+    """Update a task. Summary tasks have read-only dates."""
     task = Task.query.get_or_404(task_id)
     data = request.get_json()
+    project_id = task.project_id
+    dates_changed = False
     
     if 'description' in data:
         task.description = data['description']
-    if 'start_date' in data:
-        task.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
-    if 'end_date' in data:
-        task.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
-    if 'estimate' in data:
-        task.estimate = data['estimate']
+    
+    # Only allow date changes for non-summary tasks
+    if not task.is_summary:
+        if 'start_date' in data:
+            task.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+            dates_changed = True
+        if 'end_date' in data:
+            task.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+            dates_changed = True
+        if 'estimate' in data:
+            task.estimate = data['estimate']
+    
+    # Track if estimate changed (for non-summary tasks, this affects parent estimates)
+    estimate_changed = 'estimate' in data and not task.is_summary
+    
     if 'resource' in data:
         task.resource = data['resource']
     if 'status' in data:
@@ -271,22 +508,215 @@ def update_task(task_id):
         task.progress = max(0, min(100, data['progress']))  # Clamp 0-100
     if 'order_index' in data:
         task.order_index = data['order_index']
+    if 'expanded' in data:
+        task.expanded = data['expanded']
     
-    # Validate dates
-    if task.end_date < task.start_date:
+    # Validate dates for non-summary tasks
+    if not task.is_summary and task.end_date < task.start_date:
         return jsonify({'error': 'End date must be after start date'}), 400
     
     db.session.commit()
+    
+    # Recalculate parent summary tasks if dates OR estimates changed
+    if dates_changed or estimate_changed:
+        recalculate_summary_dates(project_id)
+    
+    # Recalculate parent status if this task's status changed
+    status_changed = 'status' in data
+    if status_changed:
+        recalculate_summary_status(project_id)
+    
+    # Return all tasks if dates, estimate, or status changed (to reflect parent changes)
+    if dates_changed or estimate_changed or status_changed:
+        all_tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+        return jsonify([t.to_dict() for t in all_tasks])
+    
     return jsonify(task.to_dict())
 
 
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
-    """Delete a task"""
+    """Delete a task and handle hierarchy cleanup"""
     task = Task.query.get_or_404(task_id)
+    project_id = task.project_id
+    
+    # Move children up one level (to deleted task's parent)
+    children = Task.query.filter_by(parent_id=task_id).all()
+    for child in children:
+        child.parent_id = task.parent_id
+        if task.parent_id:
+            child.level = task.level
+        else:
+            child.level = 0
+    
     db.session.delete(task)
     db.session.commit()
-    return jsonify({'message': 'Task deleted successfully'})
+    
+    # Recalculate hierarchy
+    update_wbs_codes(project_id)
+    recalculate_summary_dates(project_id)
+    recalculate_order_indices(project_id)
+    
+    # Return updated task list
+    tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    return jsonify([t.to_dict() for t in tasks])
+
+
+# =============================================================================
+# API ROUTES - TASK HIERARCHY
+# =============================================================================
+
+@app.route('/api/tasks/<int:task_id>/indent', methods=['POST'])
+def indent_task(task_id):
+    """
+    Indent (demote) a task - make it a child of the task immediately above it.
+    The task above becomes a Summary Task.
+    """
+    task = Task.query.get_or_404(task_id)
+    project_id = task.project_id
+    
+    # Find the task immediately above this one
+    tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    task_index = next((i for i, t in enumerate(tasks) if t.id == task_id), -1)
+    
+    if task_index <= 0:
+        return jsonify({'error': 'Cannot indent the first task'}), 400
+    
+    # Find potential parent - the task directly above
+    potential_parent = None
+    for i in range(task_index - 1, -1, -1):
+        if tasks[i].level <= task.level:
+            potential_parent = tasks[i]
+            break
+    
+    if not potential_parent:
+        return jsonify({'error': 'No valid parent found'}), 400
+    
+    # Update hierarchy
+    task.parent_id = potential_parent.id
+    task.level = potential_parent.level + 1
+    potential_parent.is_summary = True
+    
+    # Also indent all children (descendants) of this task
+    def update_descendants(parent_task, level_offset):
+        children = Task.query.filter_by(parent_id=parent_task.id).all()
+        for child in children:
+            child.level = parent_task.level + 1
+            update_descendants(child, level_offset)
+    
+    update_descendants(task, 1)
+    
+    db.session.commit()
+    
+    # Recalculate everything
+    update_wbs_codes(project_id)
+    recalculate_summary_dates(project_id)
+    recalculate_order_indices(project_id)
+    
+    # Return updated task list
+    tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    return jsonify([t.to_dict() for t in tasks])
+
+
+@app.route('/api/tasks/<int:task_id>/outdent', methods=['POST'])
+def outdent_task(task_id):
+    """
+    Outdent (promote) a task - move it up one level in the hierarchy.
+    Siblings below this task become its children.
+    """
+    task = Task.query.get_or_404(task_id)
+    project_id = task.project_id
+    
+    if task.level == 0 or task.parent_id is None:
+        return jsonify({'error': 'Cannot outdent a top-level task'}), 400
+    
+    old_parent = Task.query.get(task.parent_id)
+    if not old_parent:
+        return jsonify({'error': 'Parent task not found'}), 400
+    
+    # Move task to parent's level
+    task.parent_id = old_parent.parent_id
+    task.level = old_parent.level
+    
+    # Find siblings that were below this task and make them children of this task
+    all_tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    task_index = next((i for i, t in enumerate(all_tasks) if t.id == task_id), -1)
+    
+    # Siblings that come after this task (with same original parent) become children
+    for i in range(task_index + 1, len(all_tasks)):
+        sibling = all_tasks[i]
+        if sibling.parent_id == old_parent.id:
+            sibling.parent_id = task.id
+            sibling.level = task.level + 1
+            task.is_summary = True
+        elif sibling.level <= old_parent.level:
+            break  # Stop when we reach a task at same or higher level as old parent
+    
+    # Update descendants' levels
+    def update_descendants(parent_task):
+        children = Task.query.filter_by(parent_id=parent_task.id).all()
+        for child in children:
+            child.level = parent_task.level + 1
+            update_descendants(child)
+    
+    update_descendants(task)
+    
+    # Check if old parent still has children
+    old_parent_children = Task.query.filter_by(parent_id=old_parent.id).count()
+    if old_parent_children == 0:
+        old_parent.is_summary = False
+    
+    db.session.commit()
+    
+    # Recalculate everything
+    update_wbs_codes(project_id)
+    recalculate_summary_dates(project_id)
+    recalculate_order_indices(project_id)
+    
+    # Return updated task list
+    tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    return jsonify([t.to_dict() for t in tasks])
+
+
+@app.route('/api/tasks/<int:task_id>/toggle-expand', methods=['POST'])
+def toggle_expand_task(task_id):
+    """Toggle the expanded/collapsed state of a summary task."""
+    task = Task.query.get_or_404(task_id)
+    
+    if not task.is_summary:
+        return jsonify({'error': 'Only summary tasks can be expanded/collapsed'}), 400
+    
+    task.expanded = not task.expanded
+    db.session.commit()
+    
+    return jsonify(task.to_dict())
+
+
+@app.route('/api/projects/<int:project_id>/reorder', methods=['POST'])
+def reorder_tasks(project_id):
+    """
+    Reorder tasks based on new order_index values.
+    Used for drag-and-drop reordering.
+    """
+    Project.query.get_or_404(project_id)
+    data = request.get_json()
+    
+    task_orders = data.get('task_orders', [])  # List of {id: number, order_index: number}
+    
+    for item in task_orders:
+        task = Task.query.get(item['id'])
+        if task and task.project_id == project_id:
+            task.order_index = item['order_index']
+    
+    db.session.commit()
+    
+    # Recalculate WBS codes and dates
+    update_wbs_codes(project_id)
+    recalculate_summary_dates(project_id)
+    
+    # Return updated task list
+    tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    return jsonify([t.to_dict() for t in tasks])
 
 
 # =============================================================================

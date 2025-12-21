@@ -6,6 +6,7 @@ import { toggleTodayLine } from '../store/slices/uiSlice';
 import type { Task } from '../api/api';
 
 const ROW_HEIGHT = 36;
+const TOOLBAR_HEIGHT = 33; // Match TaskGrid hierarchy toolbar height (py: 0.5 = 8px * 2 + icon 18px - 1px border)
 const HEADER_ROW_0 = 20; // Parent row (Month/Year)
 const HEADER_ROW_1 = 20; // Child row (Day/Week/Quarter)
 const HEADER_HEIGHT = HEADER_ROW_0 + HEADER_ROW_1; // Total header height
@@ -44,6 +45,24 @@ const GanttChart = () => {
         return map;
     }, [tasks]);
 
+    // Filter visible tasks based on parent expand state (same logic as TaskGrid)
+    const visibleTasks = useMemo(() => {
+        // Build a set of collapsed ancestor IDs
+        const collapsedParentIds = new Set(
+            tasks.filter(t => t.is_summary && !t.expanded).map(t => t.id)
+        );
+
+        // Check if any ancestor is collapsed
+        const isAncestorCollapsed = (task: Task): boolean => {
+            if (!task.parent_id) return false;
+            if (collapsedParentIds.has(task.parent_id)) return true;
+            const parent = tasks.find(t => t.id === task.parent_id);
+            return parent ? isAncestorCollapsed(parent) : false;
+        };
+
+        return tasks.filter(task => !isAncestorCollapsed(task));
+    }, [tasks]);
+
     const { minDate, maxDate } = useMemo(() => {
         if (tasks.length === 0) {
             const today = new Date();
@@ -53,13 +72,18 @@ const GanttChart = () => {
             };
         }
         const dates = tasks.flatMap((t) => [new Date(t.start_date), new Date(t.end_date)]);
-        const min = d3.min(dates) || new Date();
-        const max = d3.max(dates) || new Date();
-        let daysPadding = 7;
-        if (viewMode === 'monthly') daysPadding = 15;
-        if (viewMode === 'quarterly') daysPadding = 30;
-        return { minDate: d3.timeDay.offset(min, -daysPadding), maxDate: d3.timeDay.offset(max, daysPadding * 2) };
-    }, [tasks, viewMode]);
+        const taskMin = d3.min(dates) || new Date();
+        const taskMax = d3.max(dates) || new Date();
+
+        // Small padding around task range - view mode affects pixels per day, not padding
+        const startPadding = 7;  // 1 week before
+        const endPadding = 14;   // 2 weeks after
+
+        return {
+            minDate: d3.timeDay.offset(taskMin, -startPadding),
+            maxDate: d3.timeDay.offset(taskMax, endPadding)
+        };
+    }, [tasks]);
 
     const getTimeInterval = useCallback(() => {
         switch (viewMode) {
@@ -71,13 +95,14 @@ const GanttChart = () => {
         }
     }, [viewMode]);
 
-    const getPixelsPerDay = useCallback(() => {
+    // Minimum pixels per day to ensure readability - chart will scroll if needed
+    const getMinPixelsPerDay = useCallback(() => {
         switch (viewMode) {
-            case 'daily': return 30;
-            case 'weekly': return 12;
-            case 'monthly': return 4;
-            case 'quarterly': return 1.5;
-            default: return 12;
+            case 'daily': return 25;      // ~25px per day - very detailed
+            case 'weekly': return 8;      // ~56px per week - readable week columns
+            case 'monthly': return 2;     // ~60px per month - readable month columns
+            case 'quarterly': return 0.7; // ~63px per quarter - readable quarter columns
+            default: return 8;
         }
     }, [viewMode]);
 
@@ -91,12 +116,14 @@ const GanttChart = () => {
             const containerWidth = container.clientWidth;
             const margin = { top: HEADER_HEIGHT, right: 20, bottom: 20, left: 10 };
 
+            // Calculate width based on date range and minimum pixels per day
             const daysDiff = d3.timeDay.count(minDate, maxDate);
-            const pixelsPerDay = getPixelsPerDay();
-            const calculatedWidth = Math.max(daysDiff * pixelsPerDay, containerWidth - margin.left - margin.right);
+            const minPixelsPerDay = getMinPixelsPerDay();
+            const calculatedWidth = daysDiff * minPixelsPerDay;
 
-            const chartWidth = calculatedWidth;
-            const chartHeight = Math.max(tasks.length * ROW_HEIGHT, 200);
+            // Use the larger of calculated width or container width (allow scrolling for long projects)
+            const chartWidth = Math.max(calculatedWidth, containerWidth - margin.left - margin.right);
+            const chartHeight = Math.max(visibleTasks.length * ROW_HEIGHT, 200);
             const totalWidth = chartWidth + margin.left + margin.right;
             const totalHeight = chartHeight + margin.top + margin.bottom;
 
@@ -129,15 +156,15 @@ const GanttChart = () => {
                 });
             }
 
-            // Row backgrounds
-            g.selectAll('.row-bg').data(tasks).enter().append('rect')
+            // Row backgrounds (using visibleTasks to match filtered bars)
+            g.selectAll('.row-bg').data(visibleTasks).enter().append('rect')
                 .attr('class', 'row-bg')
                 .attr('x', 0).attr('y', (_, i) => i * ROW_HEIGHT)
                 .attr('width', chartWidth).attr('height', ROW_HEIGHT)
                 .attr('fill', (_, i) => (i % 2 === 0 ? colors.rowEven : colors.rowOdd));
 
             // Horizontal row lines
-            g.selectAll('.row-line').data(tasks).enter().append('line')
+            g.selectAll('.row-line').data(visibleTasks).enter().append('line')
                 .attr('class', 'row-line')
                 .attr('x1', 0).attr('x2', chartWidth)
                 .attr('y1', (_, i) => (i + 1) * ROW_HEIGHT).attr('y2', (_, i) => (i + 1) * ROW_HEIGHT)
@@ -160,7 +187,7 @@ const GanttChart = () => {
             }
 
             // Task bars
-            tasks.forEach((task, i) => {
+            visibleTasks.forEach((task, i) => {
                 const startDate = new Date(task.start_date);
                 const endDate = new Date(task.end_date);
                 const x = xScale(startDate);
@@ -173,8 +200,54 @@ const GanttChart = () => {
                     g.append('polygon')
                         .attr('points', `${centerX},${centerY - halfSize} ${centerX + halfSize},${centerY} ${centerX},${centerY + halfSize} ${centerX - halfSize},${centerY}`)
                         .attr('fill', statusColor).attr('stroke', '#fff').attr('stroke-width', 1).style('cursor', 'pointer');
+                } else if (task.is_summary) {
+                    // Summary Task: Bracket-style bar (Microsoft Project style)
+                    const summaryBarHeight = 6;
+                    const endCapHeight = 12;
+                    const summaryY = i * ROW_HEIGHT + (ROW_HEIGHT - summaryBarHeight) / 2;
+                    const summaryColor = themeMode === 'dark' ? '#a5b4fc' : '#1e1e1e';
+
+                    // Main horizontal bar
+                    g.append('rect')
+                        .attr('x', x)
+                        .attr('y', summaryY)
+                        .attr('width', barWidth)
+                        .attr('height', summaryBarHeight)
+                        .attr('fill', summaryColor)
+                        .attr('class', 'summary-bar')
+                        .style('pointer-events', 'none');
+
+                    // Left end cap (downward bracket)
+                    g.append('rect')
+                        .attr('x', x)
+                        .attr('y', summaryY - (endCapHeight - summaryBarHeight) / 2)
+                        .attr('width', 3)
+                        .attr('height', endCapHeight)
+                        .attr('fill', summaryColor)
+                        .style('pointer-events', 'none');
+
+                    // Right end cap (downward bracket)
+                    g.append('rect')
+                        .attr('x', x + barWidth - 3)
+                        .attr('y', summaryY - (endCapHeight - summaryBarHeight) / 2)
+                        .attr('width', 3)
+                        .attr('height', endCapHeight)
+                        .attr('fill', summaryColor)
+                        .style('pointer-events', 'none');
+
+                    // Summary task label (WBS code or task ID)
+                    const labelText = task.wbs_code || task.task_id;
+                    if (showTaskIdInGantt && barWidth > 40) {
+                        g.append('text')
+                            .attr('x', x + 6)
+                            .attr('y', summaryY + summaryBarHeight + 10)
+                            .attr('fill', summaryColor)
+                            .attr('font-size', '9px')
+                            .attr('font-weight', '600')
+                            .text(labelText);
+                    }
                 } else {
-                    // Calculate bar height based on style
+                    // Regular task bar - Calculate bar height based on style
                     const actualBarHeight = ganttBarStyle === 'round-corners' ? BAR_HEIGHT * 1.2 : BAR_HEIGHT;
                     const actualBarPadding = (ROW_HEIGHT - actualBarHeight) / 2;
                     const actualY = i * ROW_HEIGHT + actualBarPadding;
@@ -219,15 +292,15 @@ const GanttChart = () => {
                 }
             });
 
-            // Dependency lines
+            // Dependency lines (using visibleTasks for correct positioning)
             if (showDependencyLines) {
-                tasks.forEach((task, taskIndex) => {
+                visibleTasks.forEach((task, taskIndex) => {
                     if (task.parent_ids) {
                         const parentIds = task.parent_ids.split(',').map((id) => id.trim());
                         parentIds.forEach((parentId) => {
                             const parentTask = taskMap[parentId];
                             if (parentTask) {
-                                const parentIndex = tasks.findIndex((t) => t.task_id === parentId);
+                                const parentIndex = visibleTasks.findIndex((t) => t.task_id === parentId);
                                 if (parentIndex !== -1) {
                                     const parentStartX = xScale(new Date(parentTask.start_date));
                                     const parentBarWidth = Math.max(xScale(new Date(parentTask.end_date)) - parentStartX, 6);
@@ -361,7 +434,7 @@ const GanttChart = () => {
         updateChart();
 
         return () => resizeObserver.disconnect();
-    }, [tasks, minDate, maxDate, viewMode, themeMode, showTodayLine, showWeekends, showTaskIdInGantt, showDependencyLines, colors, statusColorMap, taskMap, getTimeInterval, getPixelsPerDay, dispatch]);
+    }, [tasks, visibleTasks, minDate, maxDate, viewMode, themeMode, showTodayLine, showWeekends, showTaskIdInGantt, showDependencyLines, ganttBarStyle, colors, statusColorMap, taskMap, getTimeInterval, getMinPixelsPerDay, dispatch]);
 
     useEffect(() => {
         if (containerRef.current) containerRef.current.scrollTop = ganttScrollTop;
@@ -369,15 +442,34 @@ const GanttChart = () => {
 
     if (tasks.length === 0) {
         return (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', bgcolor: 'background.default' }}>
-                <Typography color="text.secondary">No tasks to display</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', bgcolor: 'background.default' }}>
+                {/* Toolbar spacer to match TaskGrid hierarchy toolbar */}
+                <Box sx={{
+                    height: `${TOOLBAR_HEIGHT}px`,
+                    flexShrink: 0,
+                    borderBottom: '1px solid rgba(99, 102, 241, 0.15)',
+                    bgcolor: 'rgba(99, 102, 241, 0.03)'
+                }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                    <Typography color="text.secondary">No tasks to display</Typography>
+                </Box>
             </Box>
         );
     }
 
     return (
-        <Box ref={containerRef} sx={{ width: '100%', height: '100%', overflow: 'auto', bgcolor: 'background.default' }}>
-            <svg ref={svgRef} style={{ display: 'block' }} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', bgcolor: 'background.default' }}>
+            {/* Toolbar spacer to match TaskGrid hierarchy toolbar */}
+            <Box sx={{
+                height: `${TOOLBAR_HEIGHT}px`,
+                flexShrink: 0,
+                borderBottom: '1px solid rgba(99, 102, 241, 0.15)',
+                bgcolor: 'rgba(99, 102, 241, 0.03)'
+            }} />
+            {/* Scrollable chart area */}
+            <Box ref={containerRef} sx={{ flex: 1, overflow: 'auto' }}>
+                <svg ref={svgRef} style={{ display: 'block' }} />
+            </Box>
         </Box>
     );
 };
