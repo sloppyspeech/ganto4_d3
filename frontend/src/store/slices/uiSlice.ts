@@ -7,6 +7,7 @@ export type GanttViewType = 'tasks' | 'resources';
 export type ResourceViewMode = 'task' | 'complete';
 export type DateFormat = 'DD/MMM/YYYY' | 'DD/MMM/YY' | 'DD/MM/YYYY' | 'DD-MM-YYYY' | 'DD-MMM-YYYY' | 'DD-MMM-YY' | 'DD-MM-YY' | 'DD/MM/YY';
 export type GanttBarStyle = 'default' | 'round-corners';
+export type DependencyLineStyle = 'end-to-start' | 'bottom-to-left';
 
 interface UiState {
     viewMode: ViewMode;
@@ -21,6 +22,7 @@ interface UiState {
     resourceViewMode: ResourceViewMode;
     dateFormat: DateFormat;
     ganttBarStyle: GanttBarStyle;
+    dependencyLineStyle: DependencyLineStyle;
 }
 
 const initialState: UiState = {
@@ -36,6 +38,7 @@ const initialState: UiState = {
     resourceViewMode: 'task',
     dateFormat: (localStorage.getItem('dateFormat') as DateFormat) || 'DD/MMM/YYYY',
     ganttBarStyle: (localStorage.getItem('ganttBarStyle') as GanttBarStyle) || 'default',
+    dependencyLineStyle: (localStorage.getItem('dependencyLineStyle') as DependencyLineStyle) || 'end-to-start',
 };
 
 const uiSlice = createSlice({
@@ -90,6 +93,10 @@ const uiSlice = createSlice({
             state.ganttBarStyle = action.payload;
             localStorage.setItem('ganttBarStyle', action.payload);
         },
+        setDependencyLineStyle: (state, action: PayloadAction<DependencyLineStyle>) => {
+            state.dependencyLineStyle = action.payload;
+            localStorage.setItem('dependencyLineStyle', action.payload);
+        },
     },
 });
 
@@ -107,5 +114,6 @@ export const {
     setResourceViewMode,
     setDateFormat,
     setGanttBarStyle,
+    setDependencyLineStyle,
 } = uiSlice.actions;
 export default uiSlice.reducer;

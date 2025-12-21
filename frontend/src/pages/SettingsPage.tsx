@@ -38,7 +38,7 @@ import {
     updateStatus,
     deleteStatus,
 } from '../store/slices/settingsSlice';
-import { toggleWeekends, toggleTaskIdInGantt, toggleDependencyLines, setDateFormat, DateFormat, setGanttBarStyle, GanttBarStyle } from '../store/slices/uiSlice';
+import { toggleWeekends, toggleTaskIdInGantt, toggleDependencyLines, setDateFormat, DateFormat, setGanttBarStyle, GanttBarStyle, setDependencyLineStyle, DependencyLineStyle } from '../store/slices/uiSlice';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -60,6 +60,7 @@ const SettingsPage = () => {
     const showDependencyLines = useAppSelector((state) => state.ui.showDependencyLines);
     const dateFormat = useAppSelector((state) => state.ui.dateFormat);
     const ganttBarStyle = useAppSelector((state) => state.ui.ganttBarStyle);
+    const dependencyLineStyle = useAppSelector((state) => state.ui.dependencyLineStyle);
     const [tabValue, setTabValue] = useState(0);
 
     // Resource dialog state
@@ -376,8 +377,25 @@ const SettingsPage = () => {
                             <MenuItem value="round-corners">Round Corners (thicker, fully rounded)</MenuItem>
                         </Select>
                     </FormControl>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 0.5, mb: 3 }}>
                         Style of task bars in the Gantt chart. Round corners are 20% thicker with fully rounded edges.
+                    </Typography>
+
+                    <FormControl sx={{ minWidth: 280 }}>
+                        <InputLabel id="dependency-line-style-label">Dependency Line Style</InputLabel>
+                        <Select
+                            labelId="dependency-line-style-label"
+                            id="dependency-line-style-select"
+                            value={dependencyLineStyle}
+                            label="Dependency Line Style"
+                            onChange={(e) => dispatch(setDependencyLineStyle(e.target.value as DependencyLineStyle))}
+                        >
+                            <MenuItem value="end-to-start">End-to-Start (horizontal routing)</MenuItem>
+                            <MenuItem value="bottom-to-left">Bottom-to-Left (vertical routing)</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 0.5 }}>
+                        How dependency lines connect parent and child tasks. End-to-Start connects right side to left side. Bottom-to-Left connects bottom center to left center.
                     </Typography>
                 </TabPanel>
             </Paper>

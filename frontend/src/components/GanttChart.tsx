@@ -20,7 +20,7 @@ const GanttChart = () => {
     const dispatch = useAppDispatch();
     const { items: tasks } = useAppSelector((state) => state.tasks);
     const { statuses } = useAppSelector((state) => state.settings);
-    const { viewMode, ganttScrollTop, themeMode, showTodayLine, showWeekends, showTaskIdInGantt, showDependencyLines, ganttBarStyle } = useAppSelector((state) => state.ui);
+    const { viewMode, ganttScrollTop, themeMode, showTodayLine, showWeekends, showTaskIdInGantt, showDependencyLines, ganttBarStyle, dependencyLineStyle } = useAppSelector((state) => state.ui);
 
     const colors = useMemo(() => ({
         headerBg: themeMode === 'dark' ? '#1e293b' : '#e2e8f0',
@@ -305,14 +305,58 @@ const GanttChart = () => {
                                     const parentStartX = xScale(new Date(parentTask.start_date));
                                     const parentBarWidth = Math.max(xScale(new Date(parentTask.end_date)) - parentStartX, 6);
                                     const parentBarEndX = parentStartX + parentBarWidth;
-                                    const parentY = parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-                                    const childStartX = xScale(new Date(task.start_date));
-                                    const childY = taskIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+                                    const parentBarCenterX = parentStartX + parentBarWidth / 2;
+                                    const parentY = parentIndex * ROW_HEIGHT + BAR_PADDING;
+                                    const parentBarBottom = parentY + BAR_HEIGHT;
+                                    const parentBarCenterY = parentY + BAR_HEIGHT / 2;
 
-                                    const midX = parentBarEndX + 8;
-                                    g.append('path').attr('d', `M ${parentBarEndX} ${parentY} H ${midX} V ${childY} H ${childStartX}`)
-                                        .attr('fill', 'none').attr('stroke', '#6366f1').attr('stroke-width', 1.5).attr('stroke-opacity', 0.7);
-                                    g.append('polygon').attr('points', '-5,-3 0,0 -5,3').attr('transform', `translate(${childStartX}, ${childY})`).attr('fill', '#6366f1').attr('opacity', 0.8);
+                                    const childStartX = xScale(new Date(task.start_date));
+                                    const childY = taskIndex * ROW_HEIGHT + BAR_PADDING;
+                                    const childBarCenterY = childY + BAR_HEIGHT / 2;
+
+                                    const lineColor = '#6366f1';
+                                    const lineWidth = 1.5;
+                                    const lineOpacity = 0.7;
+
+                                    if (dependencyLineStyle === 'bottom-to-left') {
+                                        // Bottom-to-Left: Connect from parent bar bottom-center to child bar left-center
+                                        // Path: down from parent bottom, horizontal to child left, connect to child center
+                                        const dropDistance = (taskIndex - parentIndex) > 1 ? 12 : 8;
+                                        const midY = parentBarBottom + dropDistance;
+
+                                        g.append('path')
+                                            .attr('d', `M ${parentBarCenterX} ${parentBarBottom} V ${midY} H ${childStartX - 8} V ${childBarCenterY} H ${childStartX}`)
+                                            .attr('fill', 'none')
+                                            .attr('stroke', lineColor)
+                                            .attr('stroke-width', lineWidth)
+                                            .attr('stroke-opacity', lineOpacity);
+
+                                        // Arrow pointing right at child start
+                                        g.append('polygon')
+                                            .attr('points', '-5,-3 0,0 -5,3')
+                                            .attr('transform', `translate(${childStartX}, ${childBarCenterY})`)
+                                            .attr('fill', lineColor)
+                                            .attr('opacity', 0.8);
+                                    } else {
+                                        // End-to-Start (Enhanced): Connect from parent bar end to child bar start
+                                        // Improved routing with better offset to avoid overlapping bars
+                                        const horizontalOffset = Math.max(10, (childStartX - parentBarEndX) * 0.3);
+                                        const midX = Math.min(parentBarEndX + horizontalOffset, childStartX - 10);
+
+                                        g.append('path')
+                                            .attr('d', `M ${parentBarEndX} ${parentBarCenterY} H ${midX} V ${childBarCenterY} H ${childStartX}`)
+                                            .attr('fill', 'none')
+                                            .attr('stroke', lineColor)
+                                            .attr('stroke-width', lineWidth)
+                                            .attr('stroke-opacity', lineOpacity);
+
+                                        // Arrow pointing right at child start
+                                        g.append('polygon')
+                                            .attr('points', '-5,-3 0,0 -5,3')
+                                            .attr('transform', `translate(${childStartX}, ${childBarCenterY})`)
+                                            .attr('fill', lineColor)
+                                            .attr('opacity', 0.8);
+                                    }
                                 }
                             }
                         });
@@ -434,7 +478,7 @@ const GanttChart = () => {
         updateChart();
 
         return () => resizeObserver.disconnect();
-    }, [tasks, visibleTasks, minDate, maxDate, viewMode, themeMode, showTodayLine, showWeekends, showTaskIdInGantt, showDependencyLines, ganttBarStyle, colors, statusColorMap, taskMap, getTimeInterval, getMinPixelsPerDay, dispatch]);
+    }, [tasks, visibleTasks, minDate, maxDate, viewMode, themeMode, showTodayLine, showWeekends, showTaskIdInGantt, showDependencyLines, ganttBarStyle, dependencyLineStyle, colors, statusColorMap, taskMap, getTimeInterval, getMinPixelsPerDay, dispatch]);
 
     useEffect(() => {
         if (containerRef.current) containerRef.current.scrollTop = ganttScrollTop;
