@@ -154,23 +154,6 @@ const ResourceGanttChart = () => {
             const timeInterval = getTimeInterval();
             const ticks = xScale.ticks(timeInterval);
 
-            // Weekend highlighting
-            if (showWeekends && (viewMode === 'daily' || viewMode === 'weekly')) {
-                const allDays = d3.timeDay.range(minDate, maxDate);
-                allDays.forEach((day) => {
-                    const dayOfWeek = day.getDay();
-                    if (dayOfWeek === 0 || dayOfWeek === 6) {
-                        const x = xScale(day);
-                        const nextDay = d3.timeDay.offset(day, 1);
-                        const width = xScale(nextDay) - x;
-                        g.append('rect')
-                            .attr('x', x).attr('y', 0)
-                            .attr('width', width).attr('height', chartHeight)
-                            .attr('fill', colors.weekend);
-                    }
-                });
-            }
-
             // Vertical grid lines
             g.selectAll('.grid-line').data(ticks).enter().append('line')
                 .attr('class', 'grid-line')
@@ -324,6 +307,23 @@ const ResourceGanttChart = () => {
 
                         currentY += ROW_HEIGHT;
                     });
+                });
+            }
+
+            // Weekend highlighting - drawn AFTER row backgrounds for consistent overlay
+            if (showWeekends && (viewMode === 'daily' || viewMode === 'weekly')) {
+                const allDays = d3.timeDay.range(minDate, maxDate);
+                allDays.forEach((day) => {
+                    const dayOfWeek = day.getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        const x = xScale(day);
+                        const nextDay = d3.timeDay.offset(day, 1);
+                        const width = xScale(nextDay) - x;
+                        g.append('rect')
+                            .attr('x', x).attr('y', 0)
+                            .attr('width', width).attr('height', chartHeight)
+                            .attr('fill', colors.weekend);
+                    }
                 });
             }
 

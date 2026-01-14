@@ -36,7 +36,7 @@ const initialState: UiState = {
     ganttScrollTop: 0,
     ganttViewType: 'tasks',
     resourceViewMode: 'task',
-    dateFormat: (localStorage.getItem('dateFormat') as DateFormat) || 'DD/MMM/YYYY',
+    dateFormat: (localStorage.getItem('dateFormat') as DateFormat) || 'DD-MMM-YYYY',
     ganttBarStyle: (localStorage.getItem('ganttBarStyle') as GanttBarStyle) || 'default',
     dependencyLineStyle: (localStorage.getItem('dependencyLineStyle') as DependencyLineStyle) || 'end-to-start',
 };

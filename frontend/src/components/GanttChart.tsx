@@ -135,7 +135,14 @@ const GanttChart = () => {
             const timeInterval = getTimeInterval();
             const ticks = xScale.ticks(timeInterval);
 
-            // Weekend highlighting (only for daily and weekly views)
+            // Row backgrounds (using visibleTasks to match filtered bars)
+            g.selectAll('.row-bg').data(visibleTasks).enter().append('rect')
+                .attr('class', 'row-bg')
+                .attr('x', 0).attr('y', (_, i) => i * ROW_HEIGHT)
+                .attr('width', chartWidth).attr('height', ROW_HEIGHT)
+                .attr('fill', (_, i) => (i % 2 === 0 ? colors.rowEven : colors.rowOdd));
+
+            // Weekend highlighting (only for daily and weekly views) - drawn AFTER row backgrounds for consistent overlay
             if (showWeekends && (viewMode === 'daily' || viewMode === 'weekly')) {
                 const allDays = d3.timeDay.range(minDate, maxDate);
                 allDays.forEach((day) => {
@@ -145,7 +152,7 @@ const GanttChart = () => {
                         const nextDay = d3.timeDay.offset(day, 1);
                         const width = xScale(nextDay) - x;
 
-                        // Weekend column in chart area
+                        // Weekend column in chart area - consistent color across all rows
                         g.append('rect')
                             .attr('x', x)
                             .attr('y', 0)
@@ -155,13 +162,6 @@ const GanttChart = () => {
                     }
                 });
             }
-
-            // Row backgrounds (using visibleTasks to match filtered bars)
-            g.selectAll('.row-bg').data(visibleTasks).enter().append('rect')
-                .attr('class', 'row-bg')
-                .attr('x', 0).attr('y', (_, i) => i * ROW_HEIGHT)
-                .attr('width', chartWidth).attr('height', ROW_HEIGHT)
-                .attr('fill', (_, i) => (i % 2 === 0 ? colors.rowEven : colors.rowOdd));
 
             // Horizontal row lines
             g.selectAll('.row-line').data(visibleTasks).enter().append('line')
