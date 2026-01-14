@@ -694,6 +694,10 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                     return newRow;
                 }}
                 onProcessRowUpdateError={(error) => console.error(error)}
+                onRowDoubleClick={(params) => {
+                    setEditingTask(params.row as Task);
+                    setEditDialogOpen(true);
+                }}
                 sx={{
                     border: 'none',
                     fontSize: '0.8rem',

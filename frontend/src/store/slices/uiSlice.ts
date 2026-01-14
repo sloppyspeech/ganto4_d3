@@ -3,7 +3,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type ViewMode = 'daily' | 'weekly' | 'monthly' | 'quarterly';
 export type ThemeMode = 'light' | 'dark';
-export type GanttViewType = 'tasks' | 'resources';
+export type GanttViewType = 'tasks' | 'resources' | 'dashboard';
 export type ResourceViewMode = 'task' | 'complete';
 export type DateFormat = 'DD/MMM/YYYY' | 'DD/MMM/YY' | 'DD/MM/YYYY' | 'DD-MM-YYYY' | 'DD-MMM-YYYY' | 'DD-MMM-YY' | 'DD-MM-YY' | 'DD/MM/YY';
 export type GanttBarStyle = 'default' | 'round-corners';

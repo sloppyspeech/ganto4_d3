@@ -13,6 +13,7 @@ import { setViewMode, setSplitPosition, setGanttViewType, ViewMode, GanttViewTyp
 import TaskGrid from '../components/TaskGrid';
 import GanttChart from '../components/GanttChart';
 import ResourceGanttChart from '../components/ResourceGanttChart';
+import ProjectDashboard from '../components/ProjectDashboard';
 import type { TaskCreateData } from '../api/api';
 
 const SEPARATOR = '§';
@@ -318,6 +319,7 @@ const ProjectView = () => {
                 >
                     <Tab label="Tasks" value="tasks" />
                     <Tab label="Resources" value="resources" />
+                    <Tab label="Dashboard" value="dashboard" />
                 </Tabs>
 
                 {/* Right: Export/Import + View mode buttons */}
@@ -333,33 +335,37 @@ const ProjectView = () => {
                             <input type="file" accept=".csv,.txt" hidden onChange={handleFileUpload} />
                         </IconButton>
                     </Tooltip>
-                    <Box sx={{ width: 8 }} />
-                    <ToggleButtonGroup
-                        value={viewMode}
-                        exclusive
-                        onChange={handleViewModeChange}
-                        size="small"
-                        sx={{
-                            '& .MuiToggleButton-root': {
-                                px: 2,
-                                py: 0.5,
-                                textTransform: 'none',
-                                fontSize: '0.8rem',
-                                '&.Mui-selected': {
-                                    bgcolor: 'rgba(99, 102, 241, 0.2)',
-                                    color: '#818cf8',
-                                    '&:hover': {
-                                        bgcolor: 'rgba(99, 102, 241, 0.3)',
+                    {ganttViewType !== 'dashboard' && (
+                        <>
+                            <Box sx={{ width: 8 }} />
+                            <ToggleButtonGroup
+                                value={viewMode}
+                                exclusive
+                                onChange={handleViewModeChange}
+                                size="small"
+                                sx={{
+                                    '& .MuiToggleButton-root': {
+                                        px: 2,
+                                        py: 0.5,
+                                        textTransform: 'none',
+                                        fontSize: '0.8rem',
+                                        '&.Mui-selected': {
+                                            bgcolor: 'rgba(99, 102, 241, 0.2)',
+                                            color: '#818cf8',
+                                            '&:hover': {
+                                                bgcolor: 'rgba(99, 102, 241, 0.3)',
+                                            },
+                                        },
                                     },
-                                },
-                            },
-                        }}
-                    >
-                        <ToggleButton value="daily">Daily</ToggleButton>
-                        <ToggleButton value="weekly">Weekly</ToggleButton>
-                        <ToggleButton value="monthly">Monthly</ToggleButton>
-                        <ToggleButton value="quarterly">Quarterly</ToggleButton>
-                    </ToggleButtonGroup>
+                                }}
+                            >
+                                <ToggleButton value="daily">Daily</ToggleButton>
+                                <ToggleButton value="weekly">Weekly</ToggleButton>
+                                <ToggleButton value="monthly">Monthly</ToggleButton>
+                                <ToggleButton value="quarterly">Quarterly</ToggleButton>
+                            </ToggleButtonGroup>
+                        </>
+                    )}
                 </Box>
             </Box>
 
@@ -410,10 +416,15 @@ const ProjectView = () => {
                         <GanttChart />
                     </Box>
                 </Box>
-            ) : (
+            ) : ganttViewType === 'resources' ? (
                 // Resources view: Full-width ResourceGanttChart
                 <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
                     <ResourceGanttChart />
+                </Box>
+            ) : (
+                // Dashboard view
+                <Box sx={{ flexGrow: 1, overflow: 'auto', bgcolor: 'background.default' }}>
+                    <ProjectDashboard />
                 </Box>
             )}
 
