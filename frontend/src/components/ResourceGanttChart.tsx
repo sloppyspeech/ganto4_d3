@@ -33,11 +33,11 @@ const ResourceGanttChart = () => {
         headerBg: themeMode === 'dark' ? '#1e293b' : '#e2e8f0',
         headerBgAlt: themeMode === 'dark' ? '#0f172a' : '#cbd5e1',
         headerText: themeMode === 'dark' ? '#e2e8f0' : '#1e293b',
-        rowEven: themeMode === 'dark' ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.06)',
-        rowOdd: themeMode === 'dark' ? 'rgba(15, 23, 42, 0.5)' : 'rgba(241, 245, 249, 0.8)',
+        rowEven: themeMode === 'dark' ? 'rgba(99, 102, 241, 0.08)' : 'rgba(226, 232, 240, 0.6)',
+        rowOdd: themeMode === 'dark' ? 'rgba(15, 23, 42, 0.5)' : 'rgba(248, 250, 252, 0.6)',
         gridLine: themeMode === 'dark' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.35)',
         rowBorder: themeMode === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.2)',
-        weekend: themeMode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.08)',
+        weekend: themeMode === 'dark' ? 'rgba(239, 68, 68, 0.18)' : 'rgba(239, 68, 68, 0.12)',
         groupBg: themeMode === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.12)',
     }), [themeMode]);
 
