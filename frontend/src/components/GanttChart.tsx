@@ -186,7 +186,79 @@ const GanttChart = () => {
                     .attr('stroke', '#ef4444').attr('stroke-width', 2);
             }
 
-            // Task bars
+            // Dependency lines (drawn FIRST so they appear behind task bars)
+            if (showDependencyLines) {
+                visibleTasks.forEach((task, taskIndex) => {
+                    if (task.parent_ids) {
+                        const parentIds = task.parent_ids.split(',').map((id) => id.trim());
+                        parentIds.forEach((parentId) => {
+                            const parentTask = taskMap[parentId];
+                            if (parentTask) {
+                                const parentIndex = visibleTasks.findIndex((t) => t.task_id === parentId);
+                                if (parentIndex !== -1) {
+                                    const parentStartX = xScale(new Date(parentTask.start_date));
+                                    const parentBarWidth = Math.max(xScale(new Date(parentTask.end_date)) - parentStartX, 6);
+                                    const parentBarEndX = parentStartX + parentBarWidth;
+                                    const parentBarCenterX = parentStartX + parentBarWidth / 2;
+                                    const parentY = parentIndex * ROW_HEIGHT + BAR_PADDING;
+                                    const parentBarBottom = parentY + BAR_HEIGHT;
+                                    const parentBarCenterY = parentY + BAR_HEIGHT / 2;
+
+                                    const childStartX = xScale(new Date(task.start_date));
+                                    const childY = taskIndex * ROW_HEIGHT + BAR_PADDING;
+                                    const childBarCenterY = childY + BAR_HEIGHT / 2;
+
+                                    const lineColor = '#6366f1';
+                                    const lineWidth = 1.5;
+                                    const lineOpacity = 0.7;
+
+                                    if (dependencyLineStyle === 'bottom-to-left') {
+                                        // Bottom-to-Left: Connect from parent bar bottom-center to child bar left-center
+                                        // Path: down from parent bottom, horizontal to child left, connect to child center
+                                        const dropDistance = (taskIndex - parentIndex) > 1 ? 12 : 8;
+                                        const midY = parentBarBottom + dropDistance;
+
+                                        g.append('path')
+                                            .attr('d', `M ${parentBarCenterX} ${parentBarBottom} V ${midY} H ${childStartX - 8} V ${childBarCenterY} H ${childStartX}`)
+                                            .attr('fill', 'none')
+                                            .attr('stroke', lineColor)
+                                            .attr('stroke-width', lineWidth)
+                                            .attr('stroke-opacity', lineOpacity);
+
+                                        // Arrow pointing right at child start
+                                        g.append('polygon')
+                                            .attr('points', '-5,-3 0,0 -5,3')
+                                            .attr('transform', `translate(${childStartX}, ${childBarCenterY})`)
+                                            .attr('fill', lineColor)
+                                            .attr('opacity', 0.8);
+                                    } else {
+                                        // End-to-Start (Enhanced): Connect from parent bar end to child bar start
+                                        // Improved routing with better offset to avoid overlapping bars
+                                        const horizontalOffset = Math.max(10, (childStartX - parentBarEndX) * 0.3);
+                                        const midX = Math.min(parentBarEndX + horizontalOffset, childStartX - 10);
+
+                                        g.append('path')
+                                            .attr('d', `M ${parentBarEndX} ${parentBarCenterY} H ${midX} V ${childBarCenterY} H ${childStartX}`)
+                                            .attr('fill', 'none')
+                                            .attr('stroke', lineColor)
+                                            .attr('stroke-width', lineWidth)
+                                            .attr('stroke-opacity', lineOpacity);
+
+                                        // Arrow pointing right at child start
+                                        g.append('polygon')
+                                            .attr('points', '-5,-3 0,0 -5,3')
+                                            .attr('transform', `translate(${childStartX}, ${childBarCenterY})`)
+                                            .attr('fill', lineColor)
+                                            .attr('opacity', 0.8);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Task bars (drawn AFTER dependency lines so bars appear on top)
             visibleTasks.forEach((task, i) => {
                 const startDate = new Date(task.start_date);
                 const endDate = new Date(task.end_date);
@@ -291,78 +363,6 @@ const GanttChart = () => {
                     }
                 }
             });
-
-            // Dependency lines (using visibleTasks for correct positioning)
-            if (showDependencyLines) {
-                visibleTasks.forEach((task, taskIndex) => {
-                    if (task.parent_ids) {
-                        const parentIds = task.parent_ids.split(',').map((id) => id.trim());
-                        parentIds.forEach((parentId) => {
-                            const parentTask = taskMap[parentId];
-                            if (parentTask) {
-                                const parentIndex = visibleTasks.findIndex((t) => t.task_id === parentId);
-                                if (parentIndex !== -1) {
-                                    const parentStartX = xScale(new Date(parentTask.start_date));
-                                    const parentBarWidth = Math.max(xScale(new Date(parentTask.end_date)) - parentStartX, 6);
-                                    const parentBarEndX = parentStartX + parentBarWidth;
-                                    const parentBarCenterX = parentStartX + parentBarWidth / 2;
-                                    const parentY = parentIndex * ROW_HEIGHT + BAR_PADDING;
-                                    const parentBarBottom = parentY + BAR_HEIGHT;
-                                    const parentBarCenterY = parentY + BAR_HEIGHT / 2;
-
-                                    const childStartX = xScale(new Date(task.start_date));
-                                    const childY = taskIndex * ROW_HEIGHT + BAR_PADDING;
-                                    const childBarCenterY = childY + BAR_HEIGHT / 2;
-
-                                    const lineColor = '#6366f1';
-                                    const lineWidth = 1.5;
-                                    const lineOpacity = 0.7;
-
-                                    if (dependencyLineStyle === 'bottom-to-left') {
-                                        // Bottom-to-Left: Connect from parent bar bottom-center to child bar left-center
-                                        // Path: down from parent bottom, horizontal to child left, connect to child center
-                                        const dropDistance = (taskIndex - parentIndex) > 1 ? 12 : 8;
-                                        const midY = parentBarBottom + dropDistance;
-
-                                        g.append('path')
-                                            .attr('d', `M ${parentBarCenterX} ${parentBarBottom} V ${midY} H ${childStartX - 8} V ${childBarCenterY} H ${childStartX}`)
-                                            .attr('fill', 'none')
-                                            .attr('stroke', lineColor)
-                                            .attr('stroke-width', lineWidth)
-                                            .attr('stroke-opacity', lineOpacity);
-
-                                        // Arrow pointing right at child start
-                                        g.append('polygon')
-                                            .attr('points', '-5,-3 0,0 -5,3')
-                                            .attr('transform', `translate(${childStartX}, ${childBarCenterY})`)
-                                            .attr('fill', lineColor)
-                                            .attr('opacity', 0.8);
-                                    } else {
-                                        // End-to-Start (Enhanced): Connect from parent bar end to child bar start
-                                        // Improved routing with better offset to avoid overlapping bars
-                                        const horizontalOffset = Math.max(10, (childStartX - parentBarEndX) * 0.3);
-                                        const midX = Math.min(parentBarEndX + horizontalOffset, childStartX - 10);
-
-                                        g.append('path')
-                                            .attr('d', `M ${parentBarEndX} ${parentBarCenterY} H ${midX} V ${childBarCenterY} H ${childStartX}`)
-                                            .attr('fill', 'none')
-                                            .attr('stroke', lineColor)
-                                            .attr('stroke-width', lineWidth)
-                                            .attr('stroke-opacity', lineOpacity);
-
-                                        // Arrow pointing right at child start
-                                        g.append('polygon')
-                                            .attr('points', '-5,-3 0,0 -5,3')
-                                            .attr('transform', `translate(${childStartX}, ${childBarCenterY})`)
-                                            .attr('fill', lineColor)
-                                            .attr('opacity', 0.8);
-                                    }
-                                }
-                            }
-                        });
-                    }
-                });
-            }
 
             // === TWO-ROW HEADER ===
             // Row 0 background (darker)

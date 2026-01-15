@@ -392,7 +392,7 @@ const ProjectDashboard = () => {
             sx={{
                 p: 2.5, display: 'flex', alignItems: 'center', gap: 2.5,
                 background: colors.cardBg, border: `1px solid ${colors.cardBorder}`,
-                borderRadius: 3, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)',
+                borderRadius: 2, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)',
                 transition: 'all 0.3s ease',
                 '&:hover': {
                     transform: 'translateY(-2px)',
@@ -442,7 +442,7 @@ const ProjectDashboard = () => {
             <Grid container spacing={2.5}>
                 {/* Status Distribution Chart */}
                 <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 3, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
+                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 2, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                             <Typography sx={{ color: colors.text, fontWeight: 600, fontSize: '0.95rem' }}>Status Distribution</Typography>
                             <Box sx={{ display: 'flex', gap: 0.5, p: 0.5, borderRadius: 2, bgcolor: colors.gridLine }}>
@@ -466,7 +466,7 @@ const ProjectDashboard = () => {
 
                 {/* Resource Workload Chart */}
                 <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 3, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
+                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 2, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                             <Typography sx={{ color: colors.text, fontWeight: 600, fontSize: '0.95rem' }}>Resource Workload</Typography>
                             <Box sx={{ display: 'flex', gap: 0.5, p: 0.5, borderRadius: 2, bgcolor: colors.gridLine }}>
@@ -490,7 +490,7 @@ const ProjectDashboard = () => {
 
                 {/* Progress Distribution Chart */}
                 <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 3, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
+                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 2, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                             <Typography sx={{ color: colors.text, fontWeight: 600, fontSize: '0.95rem' }}>Progress Distribution</Typography>
                         </Box>
@@ -502,7 +502,7 @@ const ProjectDashboard = () => {
 
                 {/* Tasks by Month Chart */}
                 <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 3, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
+                    <Paper elevation={0} sx={{ p: 2.5, height: '100%', background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 2, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                             <Typography sx={{ color: colors.text, fontWeight: 600, fontSize: '0.95rem' }}>Tasks by Month</Typography>
                         </Box>

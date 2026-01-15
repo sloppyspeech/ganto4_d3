@@ -139,6 +139,7 @@ const Dashboard = () => {
                                     bgcolor: 'background.paper',
                                     border: '1px solid',
                                     borderColor: isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.3)',
+                                    borderRadius: 2,
                                     boxShadow: isDark
                                         ? '0 4px 12px rgba(0, 0, 0, 0.3)'
                                         : '0 4px 12px rgba(99, 102, 241, 0.1)',
