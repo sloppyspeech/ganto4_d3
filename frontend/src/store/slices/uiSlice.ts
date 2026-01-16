@@ -16,6 +16,7 @@ interface UiState {
     showWeekends: boolean;
     showTaskIdInGantt: boolean;
     showDependencyLines: boolean;
+    enableDoubleClickEdit: boolean;
     splitPosition: number;
     ganttScrollTop: number;
     ganttViewType: GanttViewType;
@@ -32,6 +33,7 @@ const initialState: UiState = {
     showWeekends: localStorage.getItem('showWeekends') !== 'false',
     showTaskIdInGantt: localStorage.getItem('showTaskIdInGantt') !== 'false',
     showDependencyLines: localStorage.getItem('showDependencyLines') !== 'false',
+    enableDoubleClickEdit: localStorage.getItem('enableDoubleClickEdit') !== 'false',
     splitPosition: parseInt(localStorage.getItem('splitPosition') || '50', 10),
     ganttScrollTop: 0,
     ganttViewType: 'tasks',
@@ -97,6 +99,10 @@ const uiSlice = createSlice({
             state.dependencyLineStyle = action.payload;
             localStorage.setItem('dependencyLineStyle', action.payload);
         },
+        toggleDoubleClickEdit: (state) => {
+            state.enableDoubleClickEdit = !state.enableDoubleClickEdit;
+            localStorage.setItem('enableDoubleClickEdit', state.enableDoubleClickEdit.toString());
+        },
     },
 });
 
@@ -108,6 +114,7 @@ export const {
     toggleWeekends,
     toggleTaskIdInGantt,
     toggleDependencyLines,
+    toggleDoubleClickEdit,
     setSplitPosition,
     setGanttScrollTop,
     setGanttViewType,

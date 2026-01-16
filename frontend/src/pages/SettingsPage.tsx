@@ -38,7 +38,7 @@ import {
     updateStatus,
     deleteStatus,
 } from '../store/slices/settingsSlice';
-import { toggleWeekends, toggleTaskIdInGantt, toggleDependencyLines, setDateFormat, DateFormat, setGanttBarStyle, GanttBarStyle, setDependencyLineStyle, DependencyLineStyle } from '../store/slices/uiSlice';
+import { toggleWeekends, toggleTaskIdInGantt, toggleDependencyLines, toggleDoubleClickEdit, setDateFormat, DateFormat, setGanttBarStyle, GanttBarStyle, setDependencyLineStyle, DependencyLineStyle } from '../store/slices/uiSlice';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -58,6 +58,7 @@ const SettingsPage = () => {
     const showWeekends = useAppSelector((state) => state.ui.showWeekends);
     const showTaskIdInGantt = useAppSelector((state) => state.ui.showTaskIdInGantt);
     const showDependencyLines = useAppSelector((state) => state.ui.showDependencyLines);
+    const enableDoubleClickEdit = useAppSelector((state) => state.ui.enableDoubleClickEdit);
     const dateFormat = useAppSelector((state) => state.ui.dateFormat);
     const ganttBarStyle = useAppSelector((state) => state.ui.ganttBarStyle);
     const dependencyLineStyle = useAppSelector((state) => state.ui.dependencyLineStyle);
@@ -339,6 +340,21 @@ const SettingsPage = () => {
                     />
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 4, mb: 3 }}>
                         When enabled, lines will be drawn connecting dependent tasks.
+                    </Typography>
+
+                    <Typography variant="h6" sx={{ mb: 2, mt: 2 }}>Task Grid Settings</Typography>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={enableDoubleClickEdit}
+                                onChange={() => dispatch(toggleDoubleClickEdit())}
+                                color="primary"
+                            />
+                        }
+                        label="Enable double-click to edit task"
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 4, mb: 3 }}>
+                        When enabled, double-clicking on a task row in the grid will open the Edit Task dialog.
                     </Typography>
 
                     <FormControl sx={{ minWidth: 200, mt: 2 }}>

@@ -65,6 +65,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
     const { items: tasks, loading } = useAppSelector((state) => state.tasks);
     const { resources, statuses, taskTypes } = useAppSelector((state) => state.settings);
     const dateFormat = useAppSelector((state) => state.ui.dateFormat);
+    const enableDoubleClickEdit = useAppSelector((state) => state.ui.enableDoubleClickEdit);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -200,6 +201,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                     status: editingTask.status,
                     task_type: editingTask.task_type,
                     parent_ids: editingTask.parent_ids,
+                    progress: editingTask.progress,
                 }
             }));
             setEditDialogOpen(false);
@@ -542,6 +544,24 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                             sx={{ flex: 1 }}
                         />
                     </Box>
+                    {/* Progress field - only show for edit dialog (task has 'id' property) */}
+                    {'id' in task && (
+                        <TextField
+                            margin="dense"
+                            label="Progress (%)"
+                            type="number"
+                            fullWidth
+                            variant="outlined"
+                            value={(task as Task).progress || 0}
+                            onChange={(e) => setTask({ ...task, progress: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) })}
+                            slotProps={{
+                                inputLabel: { shrink: true },
+                                htmlInput: { min: 0, max: 100, step: 5 }
+                            }}
+                            helperText="Task completion percentage (0-100)"
+                            sx={{ mb: 2 }}
+                        />
+                    )}
                     {/* Dependencies Autocomplete */}
                     <Autocomplete
                         multiple
@@ -695,8 +715,10 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                 }}
                 onProcessRowUpdateError={(error) => console.error(error)}
                 onRowDoubleClick={(params) => {
-                    setEditingTask(params.row as Task);
-                    setEditDialogOpen(true);
+                    if (enableDoubleClickEdit) {
+                        setEditingTask(params.row as Task);
+                        setEditDialogOpen(true);
+                    }
                 }}
                 sx={{
                     border: 'none',
