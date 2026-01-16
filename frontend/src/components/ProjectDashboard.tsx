@@ -516,12 +516,52 @@ const ProjectDashboard = () => {
             {/* Legend */}
             <Box sx={{ mt: 3, p: 2, background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: 2 }}>
                 <Typography sx={{ mb: 1.5, color: colors.text, fontWeight: 600, fontSize: '0.85rem' }}>Status Legend</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2.5 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
                     {statusData.map((status) => (
-                        <Box key={status.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: status.color, boxShadow: `0 2px 6px ${status.color}50` }} />
-                            <Typography sx={{ fontSize: '0.8rem', color: colors.textSecondary, fontWeight: 500 }}>
-                                {status.name} <Box component="span" sx={{ color: colors.text, fontWeight: 600 }}>({status.value})</Box>
+                        <Box
+                            key={status.name}
+                            sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.75,
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: '9999px',
+                                bgcolor: `${status.color}20`,
+                                border: `1px solid ${status.color}40`,
+                                boxShadow: `0 2px 8px ${status.color}25`,
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: `0 4px 12px ${status.color}35`,
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    bgcolor: status.color,
+                                }}
+                            />
+                            <Typography sx={{ fontSize: '0.75rem', color: status.color, fontWeight: 600 }}>
+                                {status.name}
+                            </Typography>
+                            <Typography
+                                sx={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    color: '#fff',
+                                    bgcolor: status.color,
+                                    px: 0.75,
+                                    py: 0.1,
+                                    borderRadius: '9999px',
+                                    minWidth: 20,
+                                    textAlign: 'center',
+                                }}
+                            >
+                                {status.value}
                             </Typography>
                         </Box>
                     ))}

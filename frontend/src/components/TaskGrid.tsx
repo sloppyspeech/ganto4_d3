@@ -385,24 +385,30 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
         {
             field: 'status',
             headerName: 'Status',
-            width: 100,
+            width: 110,
             editable: true,
             type: 'singleSelect',
             valueOptions: statuses.map((s) => s.name),
             renderCell: (params: GridRenderCellParams) => {
                 const status = statuses.find((s) => s.name === params.value);
+                const statusColor = status?.color || '#9E9E9E';
                 return (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: '100%' }}>
-                        <Box sx={{
-                            width: 8,
-                            height: 8,
-                            minWidth: 8,
-                            minHeight: 8,
-                            flexShrink: 0,
-                            borderRadius: '50%',
-                            bgcolor: status?.color || '#9E9E9E'
-                        }} />
-                        <span style={{ fontSize: '0.8rem' }}>{params.value}</span>
+                    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                        <Box
+                            sx={{
+                                px: 1.25,
+                                py: 0.25,
+                                borderRadius: '12px',
+                                bgcolor: `${statusColor}90`,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                color: '#1a1a1a',
+                                whiteSpace: 'nowrap',
+                                lineHeight: 1.4,
+                            }}
+                        >
+                            {params.value}
+                        </Box>
                     </Box>
                 );
             },
