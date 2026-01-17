@@ -66,6 +66,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
     const { resources, statuses, taskTypes } = useAppSelector((state) => state.settings);
     const dateFormat = useAppSelector((state) => state.ui.dateFormat);
     const enableDoubleClickEdit = useAppSelector((state) => state.ui.enableDoubleClickEdit);
+    const themeMode = useAppSelector((state) => state.ui.themeMode);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -392,6 +393,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
             renderCell: (params: GridRenderCellParams) => {
                 const status = statuses.find((s) => s.name === params.value);
                 const statusColor = status?.color || '#9E9E9E';
+                const isDark = themeMode === 'dark';
                 return (
                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                         <Box
@@ -399,10 +401,10 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                                 px: 1.25,
                                 py: 0.25,
                                 borderRadius: '12px',
-                                bgcolor: `${statusColor}90`,
+                                bgcolor: `${statusColor}${isDark ? '70' : '90'}`,
                                 fontSize: '0.7rem',
                                 fontWeight: 600,
-                                color: '#1a1a1a',
+                                color: isDark ? '#f5f5f5' : '#1a1a1a',
                                 whiteSpace: 'nowrap',
                                 lineHeight: 1.4,
                             }}
@@ -421,12 +423,27 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
             type: 'number',
             renderCell: (params: GridRenderCellParams) => {
                 const value = params.value as number || 0;
+                const isDark = themeMode === 'dark';
                 return (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }}>
-                        <Box sx={{ flex: 1, height: 8, bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden' }}>
-                            <Box sx={{ width: `${value}%`, height: '100%', bgcolor: value >= 100 ? '#4caf50' : '#6366f1', transition: 'width 0.2s' }} />
+                        <Box sx={{
+                            flex: 1,
+                            height: 8,
+                            bgcolor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)',
+                            borderRadius: 1,
+                            overflow: 'hidden',
+                            border: isDark ? '1px solid rgba(255,255,255,0.2)' : 'none'
+                        }}>
+                            <Box sx={{
+                                width: `${value}%`,
+                                height: '100%',
+                                bgcolor: value >= 100
+                                    ? (isDark ? '#4ade80' : '#4caf50')
+                                    : (isDark ? '#a5b4fc' : '#6366f1'),
+                                transition: 'width 0.2s'
+                            }} />
                         </Box>
-                        <span style={{ fontSize: '0.75rem', minWidth: 28 }}>{value}%</span>
+                        <span style={{ fontSize: '0.75rem', minWidth: 28, color: isDark ? '#e0e0e0' : 'inherit' }}>{value}%</span>
                     </Box>
                 );
             },
