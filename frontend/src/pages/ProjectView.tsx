@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, IconButton, Tooltip, ToggleButtonGroup, ToggleButton, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -24,7 +24,7 @@ const ProjectView = () => {
     const dispatch = useAppDispatch();
     const { currentProject } = useAppSelector((state) => state.projects);
     const { items: tasks } = useAppSelector((state) => state.tasks);
-    const { viewMode, splitPosition, ganttViewType } = useAppSelector((state) => state.ui);
+    const { viewMode, splitPosition, ganttViewType, dateFormat } = useAppSelector((state) => state.ui);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -36,6 +36,33 @@ const ProjectView = () => {
     const [showPreview, setShowPreview] = useState(false);
 
     const projectId = id ? parseInt(id, 10) : 0;
+
+    const totalEstDays = useMemo(() => {
+        return tasks.reduce((sum, task) => sum + (task.estimate || 0), 0);
+    }, [tasks]);
+
+    const formatDate = useCallback((dateString: string) => {
+        if (!dateString) return 'TBD';
+        const d = new Date(dateString);
+        const day = String(d.getDate()).padStart(2, '0');
+        const mon = String(d.getMonth() + 1).padStart(2, '0');
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const mmm = months[d.getMonth()];
+        const yyyy = d.getFullYear();
+        const yy = String(yyyy).slice(-2);
+        
+        switch (dateFormat) {
+            case 'DD/MMM/YYYY': return `${day}/${mmm}/${yyyy}`;
+            case 'DD/MMM/YY': return `${day}/${mmm}/${yy}`;
+            case 'DD/MM/YYYY': return `${day}/${mon}/${yyyy}`;
+            case 'DD/MM/YY': return `${day}/${mon}/${yy}`;
+            case 'DD-MMM-YYYY': return `${day}-${mmm}-${yyyy}`;
+            case 'DD-MMM-YY': return `${day}-${mmm}-${yy}`;
+            case 'DD-MM-YYYY': return `${day}-${mon}-${yyyy}`;
+            case 'DD-MM-YY': return `${day}-${mon}-${yy}`;
+            default: return `${day}/${mmm}/${yyyy}`;
+        }
+    }, [dateFormat]);
 
     useEffect(() => {
         if (id) {
@@ -290,12 +317,39 @@ const ProjectView = () => {
                         </IconButton>
                     </Tooltip>
                     <Box>
-                        <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
-                            {currentProject?.name || 'Loading...'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            {currentProject?.code}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                                {currentProject?.name || 'Loading...'}
+                            </Typography>
+                            {tasks.length > 0 && (
+                                <Typography variant="caption" sx={{ 
+                                    bgcolor: 'rgba(99, 102, 241, 0.1)', 
+                                    color: '#6366f1',
+                                    px: 1, 
+                                    py: 0.25, 
+                                    borderRadius: 1,
+                                    fontWeight: 500
+                                }}>
+                                    Est: {totalEstDays} days
+                                </Typography>
+                            )}
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Typography variant="caption" color="text.secondary">
+                                {currentProject?.code}
+                            </Typography>
+                            {(currentProject?.start_date || currentProject?.end_date) && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                                    <Typography variant="caption">
+                                        {currentProject?.start_date ? formatDate(currentProject.start_date) : 'TBD'}
+                                    </Typography>
+                                    <Typography variant="caption">—</Typography>
+                                    <Typography variant="caption">
+                                        {currentProject?.end_date ? formatDate(currentProject.end_date) : 'TBD'}
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Box>
                     </Box>
                 </Box>
 

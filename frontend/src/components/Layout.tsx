@@ -36,27 +36,39 @@ const Layout = () => {
                 }}
             >
                 <Toolbar>
-                    <TimelineIcon
-                        sx={{
-                            mr: 1.5,
-                            color: '#6366f1',
-                            fontSize: 28,
-                        }}
-                    />
-                    <Typography
-                        variant="h5"
-                        component="div"
-                        sx={{
+                    <Box 
+                        onClick={() => navigate('/')}
+                        sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            cursor: 'pointer',
                             flexGrow: 1,
-                            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            fontWeight: 700,
-                            letterSpacing: '-0.5px',
+                            '&:hover': {
+                                opacity: 0.8
+                            }
                         }}
                     >
-                        OptiFlow
-                    </Typography>
+                        <TimelineIcon
+                            sx={{
+                                mr: 1.5,
+                                color: '#6366f1',
+                                fontSize: 28,
+                            }}
+                        />
+                        <Typography
+                            variant="h5"
+                            component="div"
+                            sx={{
+                                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                fontWeight: 700,
+                                letterSpacing: '-0.5px',
+                            }}
+                        >
+                            OptiFlow
+                        </Typography>
+                    </Box>
                     <Tooltip title={themeMode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
                         <IconButton
                             onClick={() => dispatch(toggleTheme())}

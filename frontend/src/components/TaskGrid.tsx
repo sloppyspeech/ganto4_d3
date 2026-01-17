@@ -247,6 +247,10 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
         setTask(updatedTask);
     };
 
+    const totalEstDays = useMemo(() => {
+        return tasks.reduce((sum, task) => sum + (task.estimate || 0), 0);
+    }, [tasks]);
+
     const columns: GridColDef[] = [
         {
             field: 'wbs_code',
@@ -377,8 +381,8 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
         },
         {
             field: 'estimate',
-            headerName: 'Est. Days',
-            width: 80,
+            headerName: `Est. Days (${totalEstDays.toFixed(1)})`,
+            width: 120,
             editable: true,
             type: 'number',
             valueFormatter: (value: number) => value?.toFixed(1) || '0.0',
