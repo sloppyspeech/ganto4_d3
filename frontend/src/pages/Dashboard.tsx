@@ -183,14 +183,83 @@ const Dashboard = () => {
                                         color="text.secondary"
                                         sx={{
                                             display: '-webkit-box',
-                                            WebkitLineClamp: 2,
+                                            WebkitLineClamp: 1,
                                             WebkitBoxOrient: 'vertical',
                                             overflow: 'hidden',
-                                            minHeight: 40,
+                                            mb: 2,
                                         }}
                                     >
                                         {project.description || 'No description'}
                                     </Typography>
+
+                                    {/* Project Summary Stats */}
+                                    <Box sx={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(3, 1fr)',
+                                        gap: 1.5,
+                                        mb: 2,
+                                        p: 1.5,
+                                        bgcolor: isDark ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.05)',
+                                        borderRadius: 1.5,
+                                    }}>
+                                        <Box sx={{ textAlign: 'center' }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', lineHeight: 1.2 }}>
+                                                {project.total_estimate || 0}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">Est. Days</Typography>
+                                        </Box>
+                                        <Box sx={{ textAlign: 'center' }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981', lineHeight: 1.2 }}>
+                                                {project.completed_estimate || 0}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">Completed</Typography>
+                                        </Box>
+                                        <Box sx={{ textAlign: 'center' }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f59e0b', lineHeight: 1.2 }}>
+                                                {project.progress || 0}%
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">Progress</Typography>
+                                        </Box>
+                                    </Box>
+
+                                    {/* Progress Bar */}
+                                    <Box sx={{ mb: 2 }}>
+                                        <Box sx={{
+                                            height: 6,
+                                            bgcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                                            borderRadius: 3,
+                                            overflow: 'hidden'
+                                        }}>
+                                            <Box sx={{
+                                                width: `${project.progress || 0}%`,
+                                                height: '100%',
+                                                bgcolor: project.progress >= 100 ? '#10b981' : 'primary.main',
+                                                borderRadius: 3,
+                                                transition: 'width 0.3s ease'
+                                            }} />
+                                        </Box>
+                                    </Box>
+
+                                    {/* Date Range */}
+                                    {(project.start_date || project.end_date) && (
+                                        <Box sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            fontSize: '0.75rem',
+                                            color: 'text.secondary'
+                                        }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <span>📅</span>
+                                                <span>{project.start_date ? new Date(project.start_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}</span>
+                                            </Box>
+                                            <Box sx={{ flex: 1, height: 1, bgcolor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', mx: 1.5 }} />
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <span>{project.end_date ? new Date(project.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}</span>
+                                                <span>🏁</span>
+                                            </Box>
+                                        </Box>
+                                    )}
                                 </CardContent>
                                 <CardActions sx={{ px: 2, pb: 2 }}>
                                     <Button size="small" color="primary">

@@ -8,6 +8,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 const ProjectDashboard = () => {
     const { items: tasks } = useAppSelector((state) => state.tasks);
@@ -386,7 +387,7 @@ const ProjectDashboard = () => {
             });
     }, [timelineData, colors]);
 
-    const MetricCard = ({ icon, title, value, gradient, iconBg }: { icon: React.ReactNode; title: string; value: string | number; gradient: string; iconBg: string }) => (
+    const MetricCard = ({ icon, title, value, gradient, iconBg, infoTooltip }: { icon: React.ReactNode; title: string; value: string | number; gradient: string; iconBg: string; infoTooltip?: string }) => (
         <Paper
             elevation={0}
             sx={{
@@ -394,6 +395,7 @@ const ProjectDashboard = () => {
                 background: colors.cardBg, border: `1px solid ${colors.cardBorder}`,
                 borderRadius: 2, boxShadow: colors.cardShadow, backdropFilter: 'blur(10px)',
                 transition: 'all 0.3s ease',
+                position: 'relative',
                 '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: isDark
@@ -405,10 +407,41 @@ const ProjectDashboard = () => {
             <Box sx={{ p: 1.5, borderRadius: 2.5, background: gradient, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${iconBg}` }}>
                 {icon}
             </Box>
-            <Box>
+            <Box sx={{ flex: 1 }}>
                 <Typography sx={{ fontSize: '2rem', fontWeight: 700, color: colors.text, lineHeight: 1.1 }}>{value}</Typography>
                 <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</Typography>
             </Box>
+            {infoTooltip && (
+                <Tooltip
+                    title={infoTooltip}
+                    placement="top"
+                    arrow
+                    slotProps={{
+                        tooltip: {
+                            sx: {
+                                bgcolor: isDark ? 'rgba(30, 41, 59, 0.95)' : 'rgba(15, 23, 42, 0.9)',
+                                color: '#fff',
+                                fontSize: '0.75rem',
+                                maxWidth: 250,
+                                p: 1.5,
+                                borderRadius: 1.5,
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                            }
+                        }
+                    }}
+                >
+                    <InfoOutlinedIcon sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        fontSize: 16,
+                        color: colors.textSecondary,
+                        cursor: 'help',
+                        opacity: 0.6,
+                        '&:hover': { opacity: 1 }
+                    }} />
+                </Tooltip>
+            )}
         </Paper>
     );
 
@@ -425,16 +458,44 @@ const ProjectDashboard = () => {
             {/* Metric Cards */}
             <Grid container spacing={2.5} sx={{ mb: 3 }}>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <MetricCard icon={<AssignmentIcon sx={{ fontSize: 28 }} />} title="Total Tasks" value={metrics.total} gradient="linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)" iconBg="rgba(99, 102, 241, 0.4)" />
+                    <MetricCard
+                        icon={<AssignmentIcon sx={{ fontSize: 28 }} />}
+                        title="Total Tasks"
+                        value={metrics.total}
+                        gradient="linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+                        iconBg="rgba(99, 102, 241, 0.4)"
+                        infoTooltip="Total number of tasks in this project"
+                    />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <MetricCard icon={<CheckCircleIcon sx={{ fontSize: 28 }} />} title="Completion Rate" value={`${metrics.completionRate}%`} gradient="linear-gradient(135deg, #10b981 0%, #34d399 100%)" iconBg="rgba(16, 185, 129, 0.4)" />
+                    <MetricCard
+                        icon={<CheckCircleIcon sx={{ fontSize: 28 }} />}
+                        title="Completion Rate"
+                        value={`${metrics.completionRate}%`}
+                        gradient="linear-gradient(135deg, #10b981 0%, #34d399 100%)"
+                        iconBg="rgba(16, 185, 129, 0.4)"
+                        infoTooltip="Percentage of tasks with 'Completed' status. Formula: (Completed Tasks ÷ Total Tasks) × 100"
+                    />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <MetricCard icon={<WarningAmberIcon sx={{ fontSize: 28 }} />} title="Overdue Tasks" value={metrics.overdue} gradient={metrics.overdue > 0 ? "linear-gradient(135deg, #ef4444 0%, #f97316 100%)" : "linear-gradient(135deg, #22c55e 0%, #4ade80 100%)"} iconBg={metrics.overdue > 0 ? "rgba(239, 68, 68, 0.4)" : "rgba(34, 197, 94, 0.4)"} />
+                    <MetricCard
+                        icon={<WarningAmberIcon sx={{ fontSize: 28 }} />}
+                        title="Overdue Tasks"
+                        value={metrics.overdue}
+                        gradient={metrics.overdue > 0 ? "linear-gradient(135deg, #ef4444 0%, #f97316 100%)" : "linear-gradient(135deg, #22c55e 0%, #4ade80 100%)"}
+                        iconBg={metrics.overdue > 0 ? "rgba(239, 68, 68, 0.4)" : "rgba(34, 197, 94, 0.4)"}
+                        infoTooltip="Tasks where end date has passed but status is not 'Completed'"
+                    />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <MetricCard icon={<TrendingUpIcon sx={{ fontSize: 28 }} />} title="Avg. Progress" value={`${metrics.avgProgress}%`} gradient="linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)" iconBg="rgba(59, 130, 246, 0.4)" />
+                    <MetricCard
+                        icon={<TrendingUpIcon sx={{ fontSize: 28 }} />}
+                        title="Avg. Progress"
+                        value={`${metrics.avgProgress}%`}
+                        gradient="linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)"
+                        iconBg="rgba(59, 130, 246, 0.4)"
+                        infoTooltip="Simple average of all task progress values. Formula: Sum of all progress % ÷ Total Tasks (treats all tasks equally)"
+                    />
                 </Grid>
             </Grid>
 

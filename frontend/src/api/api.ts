@@ -64,6 +64,11 @@ export interface Project {
     code: string;
     created_at: string;
     task_count: number;
+    total_estimate: number;
+    completed_estimate: number;
+    progress: number;
+    start_date: string | null;
+    end_date: string | null;
 }
 
 export interface Task {

@@ -33,13 +33,30 @@ class Project(db.Model):
     tasks = db.relationship('Task', backref='project', lazy=True, cascade='all, delete-orphan')
 
     def to_dict(self):
+        # Calculate summary statistics from tasks
+        tasks = self.tasks
+        total_estimate = sum(t.estimate or 0 for t in tasks)
+        completed_estimate = sum((t.estimate or 0) * (t.progress or 0) / 100 for t in tasks)
+        progress = round(completed_estimate / total_estimate * 100) if total_estimate > 0 else 0
+        
+        # Calculate date range
+        start_dates = [t.start_date for t in tasks if t.start_date]
+        end_dates = [t.end_date for t in tasks if t.end_date]
+        project_start = min(start_dates).isoformat() if start_dates else None
+        project_end = max(end_dates).isoformat() if end_dates else None
+        
         return {
             'id': self.id,
             'name': self.name,
             'description': self.description,
             'code': self.code,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'task_count': len(self.tasks)
+            'task_count': len(tasks),
+            'total_estimate': round(total_estimate, 1),
+            'completed_estimate': round(completed_estimate, 1),
+            'progress': progress,
+            'start_date': project_start,
+            'end_date': project_end
         }
 
 
