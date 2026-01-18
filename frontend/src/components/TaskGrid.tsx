@@ -105,6 +105,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
             start_date: true,
             end_date: true,
             estimate: true,
+            resource: true,
             status: true,
             progress: true,
             actions: true,
@@ -388,6 +389,14 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
             valueFormatter: (value: number) => value?.toFixed(1) || '0.0',
         },
         {
+            field: 'resource',
+            headerName: 'Resource',
+            width: 120,
+            editable: true,
+            type: 'singleSelect',
+            valueOptions: resources.map((r) => r.name),
+        },
+        {
             field: 'status',
             headerName: 'Status',
             width: 110,
@@ -491,6 +500,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
         { field: 'start_date', label: 'Start' },
         { field: 'end_date', label: 'End' },
         { field: 'estimate', label: 'Est. Days' },
+        { field: 'resource', label: 'Resource' },
         { field: 'status', label: 'Status' },
         { field: 'progress', label: 'Progress' },
         { field: 'actions', label: 'Actions' },
@@ -732,10 +742,16 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                         (key) => newRow[key as keyof typeof newRow] !== oldRow[key as keyof typeof oldRow]
                     );
                     if (changedField && changedField !== 'actions') {
+                        let value = newRow[changedField as keyof typeof newRow];
+                        // Clamp progress value between 0 and 100
+                        if (changedField === 'progress' && typeof value === 'number') {
+                            value = Math.max(0, Math.min(100, value));
+                            newRow.progress = value;
+                        }
                         handleCellEdit({
                             id: newRow.id,
                             field: changedField,
-                            value: newRow[changedField as keyof typeof newRow],
+                            value,
                         });
                     }
                     return newRow;
