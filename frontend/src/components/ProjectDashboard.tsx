@@ -522,6 +522,29 @@ const ProjectDashboard = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                             <svg ref={statusChartRef} />
                         </Box>
+                        {/* Legend for Donut Chart */}
+                        {statusChartType === 'donut' && (
+                            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
+                                {statusData.map((item) => (
+                                    <Box
+                                        key={item.name}
+                                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: '50%',
+                                                bgcolor: item.color,
+                                            }}
+                                        />
+                                        <Typography sx={{ fontSize: '0.7rem', color: colors.textSecondary }}>
+                                            {item.name}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        )}
                     </Paper>
                 </Grid>
 
@@ -546,6 +569,29 @@ const ProjectDashboard = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                             <svg ref={resourceChartRef} />
                         </Box>
+                        {/* Legend for Donut Chart */}
+                        {resourceChartType === 'donut' && (
+                            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
+                                {resourceData.map((item) => (
+                                    <Box
+                                        key={item.name}
+                                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: '50%',
+                                                bgcolor: item.color,
+                                            }}
+                                        />
+                                        <Typography sx={{ fontSize: '0.7rem', color: colors.textSecondary }}>
+                                            {item.name}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        )}
                     </Paper>
                 </Grid>
 
