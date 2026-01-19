@@ -102,6 +102,7 @@ export interface TaskCreateData {
     task_type?: string;
     parent_ids?: string;
     progress?: number;
+    parent_id?: number;  // Hierarchical parent task ID for creating child tasks
 }
 
 export interface Resource {

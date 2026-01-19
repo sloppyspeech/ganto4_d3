@@ -439,7 +439,7 @@ def get_tasks(project_id):
 
 @app.route('/api/projects/<int:project_id>/tasks', methods=['POST'])
 def create_task(project_id):
-    """Create a new task with auto-generated ID"""
+    """Create a new task with auto-generated ID. Supports creating as a child of another task."""
     project = Project.query.get_or_404(project_id)
     data = request.get_json()
     
@@ -455,6 +455,39 @@ def create_task(project_id):
     if end_date < start_date:
         return jsonify({'error': 'End date must be after start date'}), 400
     
+    # Handle hierarchical parent (for creating child tasks)
+    parent_id = data.get('parent_id')
+    level = 0
+    order_index = task_count  # Default: add at end
+    
+    if parent_id:
+        parent_task = Task.query.get(parent_id)
+        if parent_task and parent_task.project_id == project_id:
+            level = (parent_task.level or 0) + 1
+            
+            # Find position after parent's last child
+            # Get all children of this parent, sorted by order_index
+            children = Task.query.filter_by(
+                project_id=project_id, 
+                parent_id=parent_id
+            ).order_by(Task.order_index.desc()).first()
+            
+            if children:
+                # Insert after the last child
+                order_index = children.order_index + 1
+            else:
+                # First child - insert right after parent
+                order_index = parent_task.order_index + 1
+            
+            # Shift all tasks with order_index >= new position
+            Task.query.filter(
+                Task.project_id == project_id,
+                Task.order_index >= order_index
+            ).update({Task.order_index: Task.order_index + 1})
+            
+            # Mark parent as summary task
+            parent_task.is_summary = True
+    
     task = Task(
         task_id=task_id,
         description=data.get('description', ''),
@@ -467,18 +500,23 @@ def create_task(project_id):
         parent_ids=data.get('parent_ids'),
         progress=data.get('progress', 0),
         project_id=project_id,
-        order_index=task_count
+        order_index=order_index,
+        parent_id=parent_id,
+        level=level
     )
     db.session.add(task)
     db.session.commit()
     
-    # Update WBS codes for the project
+    # Recalculate hierarchy
     update_wbs_codes(project_id)
+    recalculate_order_indices(project_id)
+    if parent_id:
+        recalculate_summary_dates(project_id)
     
-    # Reload task to get updated wbs_code
-    db.session.refresh(task)
-    
-    return jsonify(task.to_dict()), 201
+    # Return all tasks to reflect hierarchy changes
+    all_tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
+    return jsonify([t.to_dict() for t in all_tasks]), 201
+
 
 
 @app.route('/api/tasks/<int:task_id>', methods=['GET'])
@@ -528,11 +566,54 @@ def update_task(task_id):
     if 'expanded' in data:
         task.expanded = data['expanded']
     
+    # Handle parent_id change (moving task to different parent)
+    parent_changed = False
+    if 'parent_id' in data:
+        new_parent_id = data['parent_id']
+        old_parent_id = task.parent_id
+        
+        if new_parent_id != old_parent_id:
+            parent_changed = True
+            
+            # Validate new parent
+            if new_parent_id is not None:
+                new_parent = Task.query.get(new_parent_id)
+                if not new_parent or new_parent.project_id != project_id:
+                    return jsonify({'error': 'Invalid parent task'}), 400
+                # Prevent making task a child of itself or its descendants
+                if new_parent_id == task_id:
+                    return jsonify({'error': 'Cannot make a task its own parent'}), 400
+                
+                task.parent_id = new_parent_id
+                task.level = (new_parent.level or 0) + 1
+                new_parent.is_summary = True
+            else:
+                # Moving to top-level
+                task.parent_id = None
+                task.level = 0
+            
+            # Check if old parent still has children
+            if old_parent_id:
+                old_parent = Task.query.get(old_parent_id)
+                if old_parent:
+                    remaining_children = Task.query.filter(
+                        Task.parent_id == old_parent_id,
+                        Task.id != task_id
+                    ).count()
+                    if remaining_children == 0:
+                        old_parent.is_summary = False
+    
     # Validate dates for non-summary tasks
     if not task.is_summary and task.end_date < task.start_date:
         return jsonify({'error': 'End date must be after start date'}), 400
     
     db.session.commit()
+    
+    # Recalculate hierarchy if parent changed
+    if parent_changed:
+        update_wbs_codes(project_id)
+        recalculate_order_indices(project_id)
+        recalculate_summary_dates(project_id)
     
     # Recalculate parent summary tasks if dates OR estimates changed
     if dates_changed or estimate_changed:
@@ -543,8 +624,8 @@ def update_task(task_id):
     if status_changed:
         recalculate_summary_status(project_id)
     
-    # Return all tasks if dates, estimate, or status changed (to reflect parent changes)
-    if dates_changed or estimate_changed or status_changed:
+    # Return all tasks if hierarchy, dates, estimate, or status changed
+    if parent_changed or dates_changed or estimate_changed or status_changed:
         all_tasks = Task.query.filter_by(project_id=project_id).order_by(Task.order_index).all()
         return jsonify([t.to_dict() for t in all_tasks])
     

@@ -99,7 +99,12 @@ const tasksSlice = createSlice({
                 state.error = action.error.message || 'Failed to fetch tasks';
             })
             .addCase(createTask.fulfilled, (state, action) => {
-                state.items.push(action.payload);
+                // Backend now returns all tasks when creating (for hierarchy updates)
+                if (Array.isArray(action.payload)) {
+                    state.items = action.payload;
+                } else {
+                    state.items.push(action.payload);
+                }
             })
             .addCase(updateTask.fulfilled, (state, action) => {
                 // When status changes, backend returns all tasks; otherwise single task

@@ -79,10 +79,21 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
         status: 'Not Started',
         task_type: 'Task',
         parent_ids: '',
+        parent_id: undefined,
     });
 
     // Task options for dependency autocomplete
     const taskOptions = useMemo(() => tasks.map(t => t.task_id), [tasks]);
+
+    // Parent task options for creating child tasks
+    const parentTaskOptions = useMemo(() =>
+        tasks.map(t => ({
+            id: t.id,
+            label: `${t.wbs_code || ''} - ${t.description}`.trim(),
+            task_id: t.task_id
+        })),
+        [tasks]
+    );
 
     // Selected task for hierarchy operations
     const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
@@ -179,6 +190,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                 status: 'Not Started',
                 task_type: 'Task',
                 parent_ids: '',
+                parent_id: undefined,
             });
         }
     };
@@ -204,6 +216,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                     task_type: editingTask.task_type,
                     parent_ids: editingTask.parent_ids,
                     progress: editingTask.progress,
+                    parent_id: editingTask.parent_id,
                 }
             }));
             setEditDialogOpen(false);
@@ -599,6 +612,49 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                             sx={{ mb: 2 }}
                         />
                     )}
+                    {/* Parent Task Selector - shown for both add and edit */}
+                    {(() => {
+                        // For edit mode, filter out self and descendants
+                        const currentId = 'id' in task ? (task as Task).id : null;
+                        const filteredOptions = currentId
+                            ? parentTaskOptions.filter(opt => {
+                                // Exclude self
+                                if (opt.id === currentId) return false;
+                                // Exclude descendants (tasks that have this task as an ancestor)
+                                const checkDescendant = (taskId: number): boolean => {
+                                    const t = tasks.find(t => t.id === taskId);
+                                    if (!t) return false;
+                                    if (t.parent_id === currentId) return true;
+                                    if (t.parent_id) return checkDescendant(t.parent_id);
+                                    return false;
+                                };
+                                return !checkDescendant(opt.id);
+                            })
+                            : parentTaskOptions;
+
+                        const currentParentId = 'id' in task ? (task as Task).parent_id : task.parent_id;
+
+                        return (
+                            <Autocomplete
+                                options={filteredOptions}
+                                value={filteredOptions.find(opt => opt.id === currentParentId) || null}
+                                onChange={(_, newValue) => setTask({ ...task, parent_id: newValue?.id || null })}
+                                getOptionLabel={(option) => option.label || ''}
+                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        margin="dense"
+                                        label="Parent Task (optional)"
+                                        variant="outlined"
+                                        placeholder="Select to move as child task..."
+                                        helperText="Select a parent task to position this task in the hierarchy"
+                                    />
+                                )}
+                                sx={{ mb: 2 }}
+                            />
+                        );
+                    })()}
                     {/* Dependencies Autocomplete */}
                     <Autocomplete
                         multiple
