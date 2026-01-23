@@ -139,6 +139,7 @@ const Dashboard = () => {
                                     bgcolor: 'background.paper',
                                     border: '1px solid',
                                     borderColor: isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.3)',
+                                    position: 'relative',
                                     borderRadius: 2,
                                     boxShadow: isDark
                                         ? '0 4px 12px rgba(0, 0, 0, 0.3)'
@@ -261,7 +262,7 @@ const Dashboard = () => {
                                         </Box>
                                     )}
                                 </CardContent>
-                                <CardActions sx={{ px: 2, pb: 2 }}>
+                                <CardActions sx={{ position: 'absolute', top: 8, right: 8, px: 2, pb: 2, display: 'flex', alignItems: 'center', opacity: 1, transition: 'opacity .2s ease-in-out' }}>
                                     <Button size="small" color="primary">
                                         Open
                                     </Button>
@@ -269,8 +270,7 @@ const Dashboard = () => {
                                         size="small"
                                         color="error"
                                         onClick={(e) => handleDeleteProject(e, project.id)}
-                                        sx={{ ml: 'auto' }}
-                                    >
+                                                                            >
                                         <DeleteIcon fontSize="small" />
                                     </IconButton>
                                 </CardActions>
