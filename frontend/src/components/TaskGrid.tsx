@@ -65,6 +65,30 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
     const { items: tasks, loading } = useAppSelector((state) => state.tasks);
     const { resources, statuses, taskTypes } = useAppSelector((state) => state.settings);
     const dateFormat = useAppSelector((state) => state.ui.dateFormat);
+    // Helper to format dates according to the selected setting
+    const formatDate = (value: string | Date | null | undefined) => {
+        if (!value) return '';
+        const d = value instanceof Date ? value : new Date(value);
+        if (isNaN(d.getTime())) return '';
+
+        const day = String(d.getDate()).padStart(2, '0');
+        const mon = String(d.getMonth() + 1).padStart(2, '0');
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const mmm = months[d.getMonth()];
+        const yyyy = d.getFullYear();
+        const yy = String(yyyy).slice(-2);
+        switch (dateFormat) {
+            case 'DD/MMM/YYYY': return `${day}/${mmm}/${yyyy}`;
+            case 'DD/MMM/YY': return `${day}/${mmm}/${yy}`;
+            case 'DD/MM/YYYY': return `${day}/${mon}/${yyyy}`;
+            case 'DD/MM/YY': return `${day}/${mon}/${yy}`;
+            case 'DD-MMM-YYYY': return `${day}-${mmm}-${yyyy}`;
+            case 'DD-MMM-YY': return `${day}-${mmm}-${yy}`;
+            case 'DD-MM-YYYY': return `${day}-${mon}-${yyyy}`;
+            case 'DD-MM-YY': return `${day}-${mon}-${yy}`;
+            default: return `${day}/${mmm}/${yyyy}`;
+        }
+    }
     const enableDoubleClickEdit = useAppSelector((state) => state.ui.enableDoubleClickEdit);
     const themeMode = useAppSelector((state) => state.ui.themeMode);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -339,25 +363,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                 return { ...row, start_date: date };
             },
             renderCell: (params: GridRenderCellParams) => {
-                if (!params.value) return '';
-                const d = params.value as Date;
-                const day = String(d.getDate()).padStart(2, '0');
-                const mon = String(d.getMonth() + 1).padStart(2, '0');
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const mmm = months[d.getMonth()];
-                const yyyy = d.getFullYear();
-                const yy = String(yyyy).slice(-2);
-                switch (dateFormat) {
-                    case 'DD/MMM/YYYY': return `${day}/${mmm}/${yyyy}`;
-                    case 'DD/MMM/YY': return `${day}/${mmm}/${yy}`;
-                    case 'DD/MM/YYYY': return `${day}/${mon}/${yyyy}`;
-                    case 'DD/MM/YY': return `${day}/${mon}/${yy}`;
-                    case 'DD-MMM-YYYY': return `${day}-${mmm}-${yyyy}`;
-                    case 'DD-MMM-YY': return `${day}-${mmm}-${yy}`;
-                    case 'DD-MM-YYYY': return `${day}-${mon}-${yyyy}`;
-                    case 'DD-MM-YY': return `${day}-${mon}-${yy}`;
-                    default: return `${day}/${mmm}/${yyyy}`;
-                }
+                return formatDate(params.value as Date);
             },
         },
         {
@@ -372,25 +378,7 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                 return { ...row, end_date: date };
             },
             renderCell: (params: GridRenderCellParams) => {
-                if (!params.value) return '';
-                const d = params.value as Date;
-                const day = String(d.getDate()).padStart(2, '0');
-                const mon = String(d.getMonth() + 1).padStart(2, '0');
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const mmm = months[d.getMonth()];
-                const yyyy = d.getFullYear();
-                const yy = String(yyyy).slice(-2);
-                switch (dateFormat) {
-                    case 'DD/MMM/YYYY': return `${day}/${mmm}/${yyyy}`;
-                    case 'DD/MMM/YY': return `${day}/${mmm}/${yy}`;
-                    case 'DD/MM/YYYY': return `${day}/${mon}/${yyyy}`;
-                    case 'DD/MM/YY': return `${day}/${mon}/${yy}`;
-                    case 'DD-MMM-YYYY': return `${day}-${mmm}-${yyyy}`;
-                    case 'DD-MMM-YY': return `${day}-${mmm}-${yy}`;
-                    case 'DD-MM-YYYY': return `${day}-${mon}-${yyyy}`;
-                    case 'DD-MM-YY': return `${day}-${mon}-${yy}`;
-                    default: return `${day}/${mmm}/${yyyy}`;
-                }
+                return formatDate(params.value as Date);
             },
         },
         {
@@ -550,12 +538,14 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                             margin="dense" label="Start Date" type="date" fullWidth variant="outlined"
                             value={task.start_date}
                             onChange={(e) => handleTaskFieldChange(task, 'start_date', e.target.value, setTask)}
+                            helperText={formatDate(task.start_date)}
                             slotProps={{ inputLabel: { shrink: true } }}
                         />
                         <TextField
                             margin="dense" label="End Date" type="date" fullWidth variant="outlined"
                             value={task.end_date}
                             onChange={(e) => handleTaskFieldChange(task, 'end_date', e.target.value, setTask)}
+                            helperText={formatDate(task.end_date)}
                             slotProps={{ inputLabel: { shrink: true } }}
                         />
                     </Box>
