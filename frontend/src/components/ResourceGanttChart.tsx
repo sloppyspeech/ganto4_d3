@@ -161,6 +161,23 @@ const ResourceGanttChart = () => {
                 .attr('y1', 0).attr('y2', chartHeight)
                 .attr('stroke', colors.gridLine).attr('stroke-width', 1);
 
+            // Weekend highlighting - drawn BEFORE bars so it appears as background
+            if (showWeekends && (viewMode === 'daily' || viewMode === 'weekly')) {
+                const allDays = d3.timeDay.range(minDate, maxDate);
+                allDays.forEach((day) => {
+                    const dayOfWeek = day.getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        const x = xScale(day);
+                        const nextDay = d3.timeDay.offset(day, 1);
+                        const width = xScale(nextDay) - x;
+                        g.append('rect')
+                            .attr('x', x).attr('y', 0)
+                            .attr('width', width).attr('height', chartHeight)
+                            .attr('fill', colors.weekend);
+                    }
+                });
+            }
+
             // Today line
             const today = new Date();
             if (showTodayLine && today >= minDate && today <= maxDate) {
@@ -214,7 +231,7 @@ const ResourceGanttChart = () => {
                         .attr('width', barWidth).attr('height', actualBarHeight)
                         .attr('rx', borderRadius)
                         .attr('fill', group.color)
-                        .attr('opacity', 0.8);
+                        .attr('opacity', 0.95);
                     if (ganttBarStyle === 'round-corners') {
                         mainBar.attr('stroke', borderColor).attr('stroke-width', 1.5);
                     }
@@ -300,6 +317,7 @@ const ResourceGanttChart = () => {
                             .attr('x', barX).attr('y', barY)
                             .attr('width', barWidth).attr('height', actualBarHeight)
                             .attr('rx', borderRadius).attr('fill', statusColor)
+                            .attr('opacity', 0.95)
                             .style('cursor', 'pointer');
                         if (ganttBarStyle === 'round-corners') {
                             mainBar.attr('stroke', borderColor).attr('stroke-width', 1.5);
@@ -307,23 +325,6 @@ const ResourceGanttChart = () => {
 
                         currentY += ROW_HEIGHT;
                     });
-                });
-            }
-
-            // Weekend highlighting - drawn AFTER row backgrounds for consistent overlay
-            if (showWeekends && (viewMode === 'daily' || viewMode === 'weekly')) {
-                const allDays = d3.timeDay.range(minDate, maxDate);
-                allDays.forEach((day) => {
-                    const dayOfWeek = day.getDay();
-                    if (dayOfWeek === 0 || dayOfWeek === 6) {
-                        const x = xScale(day);
-                        const nextDay = d3.timeDay.offset(day, 1);
-                        const width = xScale(nextDay) - x;
-                        g.append('rect')
-                            .attr('x', x).attr('y', 0)
-                            .attr('width', width).attr('height', chartHeight)
-                            .attr('fill', colors.weekend);
-                    }
                 });
             }
 

@@ -89,6 +89,55 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
             default: return `${day}/${mmm}/${yyyy}`;
         }
     }
+
+    // Helper to parse formatted date string back to ISO format (YYYY-MM-DD)
+    const parseDateInput = (formattedDate: string): string | null => {
+        if (!formattedDate) return null;
+
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        let day: number, month: number, year: number;
+
+        try {
+            const parts = formattedDate.split(/[\/-]/);
+            if (parts.length !== 3) return null;
+
+            // First part is always day
+            day = parseInt(parts[0]);
+            if (isNaN(day) || day < 1 || day > 31) return null;
+
+            // Second part could be month number or month name
+            const monthPart = parts[1];
+            if (isNaN(parseInt(monthPart))) {
+                // It's a month name (e.g., "Jan")
+                const monthIndex = months.findIndex(m => m.toLowerCase() === monthPart.toLowerCase());
+                if (monthIndex === -1) return null;
+                month = monthIndex + 1;
+            } else {
+                // It's a month number
+                month = parseInt(monthPart);
+                if (month < 1 || month > 12) return null;
+            }
+
+            // Third part is year (could be 2 or 4 digits)
+            year = parseInt(parts[2]);
+            if (isNaN(year)) return null;
+            // Convert 2-digit year to 4-digit
+            if (year < 100) {
+                year = year < 50 ? 2000 + year : 1900 + year;
+            }
+
+            // Create ISO date string
+            const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            // Validate the date
+            const testDate = new Date(isoDate);
+            if (isNaN(testDate.getTime())) return null;
+
+            return isoDate;
+        } catch {
+            return null;
+        }
+    }
     const enableDoubleClickEdit = useAppSelector((state) => state.ui.enableDoubleClickEdit);
     const themeMode = useAppSelector((state) => state.ui.themeMode);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -535,18 +584,58 @@ const TaskGrid = ({ projectId }: TaskGridProps) => {
                     />
                     <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                         <TextField
-                            margin="dense" label="Start Date" type="date" fullWidth variant="outlined"
-                            value={task.start_date}
-                            onChange={(e) => handleTaskFieldChange(task, 'start_date', e.target.value, setTask)}
-                            helperText={formatDate(task.start_date)}
-                            slotProps={{ inputLabel: { shrink: true } }}
+                            margin="dense"
+                            label="Start Date"
+                            fullWidth
+                            variant="outlined"
+                            value={formatDate(task.start_date)}
+                            onChange={(e) => {
+                                const isoDate = parseDateInput(e.target.value);
+                                if (isoDate) {
+                                    handleTaskFieldChange(task, 'start_date', isoDate, setTask);
+                                }
+                            }}
+                            placeholder={
+                                dateFormat === 'DD/MMM/YYYY' ? '18/Jan/2026' :
+                                    dateFormat === 'DD/MMM/YY' ? '18/Jan/26' :
+                                        dateFormat === 'DD/MM/YYYY' ? '18/01/2026' :
+                                            dateFormat === 'DD/MM/YY' ? '18/01/26' :
+                                                dateFormat === 'DD-MMM-YYYY' ? '18-Jan-2026' :
+                                                    dateFormat === 'DD-MMM-YY' ? '18-Jan-26' :
+                                                        dateFormat === 'DD-MM-YYYY' ? '18-01-2026' :
+                                                            '18-01-26'
+                            }
+                            helperText={`Format: ${dateFormat}`}
+                            slotProps={{
+                                inputLabel: { shrink: true }
+                            }}
                         />
                         <TextField
-                            margin="dense" label="End Date" type="date" fullWidth variant="outlined"
-                            value={task.end_date}
-                            onChange={(e) => handleTaskFieldChange(task, 'end_date', e.target.value, setTask)}
-                            helperText={formatDate(task.end_date)}
-                            slotProps={{ inputLabel: { shrink: true } }}
+                            margin="dense"
+                            label="End Date"
+                            fullWidth
+                            variant="outlined"
+                            value={formatDate(task.end_date)}
+                            onChange={(e) => {
+                                const isoDate = parseDateInput(e.target.value);
+                                if (isoDate) {
+                                    handleTaskFieldChange(task, 'end_date', isoDate, setTask);
+                                }
+                            }}
+                            placeholder={
+                                dateFormat === 'DD/MMM/YYYY' ? '30/Jan/2026' :
+                                    dateFormat === 'DD/MMM/YY' ? '30/Jan/26' :
+                                        dateFormat === 'DD/MM/YYYY' ? '30/01/2026' :
+                                            dateFormat === 'DD/MM/YY' ? '30/01/26' :
+                                                dateFormat === 'DD-MMM-YYYY' ? '30-Jan-2026' :
+                                                    dateFormat === 'DD-MMM-YY' ? '30-Jan-26' :
+                                                        dateFormat === 'DD-MM-YYYY' ? '30-01-2026' :
+                                                            '30-01-26'
+                            }
+                            helperText={`Format: ${dateFormat}`}
+                            slotProps={{
+                                inputLabel: { shrink: true }
+                            }}
                         />
                     </Box>
                     <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
