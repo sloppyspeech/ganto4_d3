@@ -28,6 +28,10 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
     fetchSettings,
@@ -38,7 +42,8 @@ import {
     updateStatus,
     deleteStatus,
 } from '../store/slices/settingsSlice';
-import { toggleWeekends, toggleTaskIdInGantt, toggleDependencyLines, toggleDoubleClickEdit, setDateFormat, DateFormat, setGanttBarStyle, GanttBarStyle, setDependencyLineStyle, DependencyLineStyle } from '../store/slices/uiSlice';
+import { toggleWeekends, toggleTaskIdInGantt, toggleDependencyLines, toggleDoubleClickEdit, setDateFormat, DateFormat, setGanttBarStyle, GanttBarStyle, setDependencyLineStyle, DependencyLineStyle, setOllamaPort, setOllamaModel, setOllamaModels } from '../store/slices/uiSlice';
+import { fetchOllamaModels } from '../api/ollamaApi';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -62,14 +67,60 @@ const SettingsPage = () => {
     const dateFormat = useAppSelector((state) => state.ui.dateFormat);
     const ganttBarStyle = useAppSelector((state) => state.ui.ganttBarStyle);
     const dependencyLineStyle = useAppSelector((state) => state.ui.dependencyLineStyle);
+    const ollamaPort = useAppSelector((state) => state.ui.ollamaPort);
+    const ollamaModel = useAppSelector((state) => state.ui.ollamaModel);
+    const ollamaModels = useAppSelector((state) => state.ui.ollamaModels);
     const [tabValue, setTabValue] = useState(0);
+
+
+    // Helper to format dates according to the selected setting
+    const formatDate = (value: string | null | undefined) => {
+        if (!value) return '-';
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return '-';
+
+        const day = String(d.getDate()).padStart(2, '0');
+        const mon = String(d.getMonth() + 1).padStart(2, '0');
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const mmm = months[d.getMonth()];
+        const yyyy = d.getFullYear();
+        const yy = String(yyyy).slice(-2);
+        switch (dateFormat) {
+            case 'DD/MMM/YYYY': return `${day}/${mmm}/${yyyy}`;
+            case 'DD/MMM/YY': return `${day}/${mmm}/${yy}`;
+            case 'DD/MM/YYYY': return `${day}/${mon}/${yyyy}`;
+            case 'DD/MM/YY': return `${day}/${mon}/${yy}`;
+            case 'DD-MMM-YYYY': return `${day}-${mmm}-${yyyy}`;
+            case 'DD-MMM-YY': return `${day}-${mmm}-${yy}`;
+            case 'DD-MM-YYYY': return `${day}-${mon}-${yyyy}`;
+            case 'DD-MM-YY': return `${day}-${mon}-${yy}`;
+            default: return `${day}/${mmm}/${yyyy}`;
+        }
+    };
+
+    // AI Settings local state
+    const [localPort, setLocalPort] = useState(ollamaPort);
+    const [isLoadingModels, setIsLoadingModels] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connected' | 'error'>('idle');
+    const [connectionError, setConnectionError] = useState('');
 
     // Resource dialog state
     const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
-    const [editingResource, setEditingResource] = useState<{ id?: number; name: string; email: string; color: string }>({
+    const [editingResource, setEditingResource] = useState<{
+        id?: number;
+        name: string;
+        email: string;
+        color: string;
+        availability_start: string;
+        availability_end: string;
+        allocation_percent: number;
+    }>({
         name: '',
         email: '',
         color: '#3498db',
+        availability_start: '2025-10-01',
+        availability_end: '2026-01-30',
+        allocation_percent: 100,
     });
 
     // Status dialog state
@@ -91,9 +142,17 @@ const SettingsPage = () => {
                 await dispatch(createResource(editingResource));
             }
             setResourceDialogOpen(false);
-            setEditingResource({ name: '', email: '', color: '#3498db' });
+            setEditingResource({
+                name: '',
+                email: '',
+                color: '#3498db',
+                availability_start: '2025-10-01',
+                availability_end: '2026-01-30',
+                allocation_percent: 100,
+            });
         }
     };
+
 
     const handleDeleteResource = async (id: number) => {
         if (window.confirm('Delete this resource?')) {
@@ -119,6 +178,28 @@ const SettingsPage = () => {
         }
     };
 
+    // Fetch Ollama models
+    const handleFetchModels = async () => {
+        setIsLoadingModels(true);
+        setConnectionError('');
+        try {
+            const models = await fetchOllamaModels(localPort);
+            dispatch(setOllamaModels(models));
+            dispatch(setOllamaPort(localPort));
+            setConnectionStatus('connected');
+            // Auto-select first model if none selected
+            if (!ollamaModel && models.length > 0) {
+                dispatch(setOllamaModel(models[0]));
+            }
+        } catch (error) {
+            setConnectionStatus('error');
+            setConnectionError(error instanceof Error ? error.message : 'Failed to connect');
+            dispatch(setOllamaModels([]));
+        } finally {
+            setIsLoadingModels(false);
+        }
+    };
+
     return (
         <Box sx={{ p: 4 }}>
             <Typography variant="h4" sx={{ mb: 3 }}>
@@ -139,6 +220,7 @@ const SettingsPage = () => {
                     <Tab label="Statuses" />
                     <Tab label="Task Types" />
                     <Tab label="Gantt Chart" />
+                    <Tab label="AI Settings" />
                 </Tabs>
 
                 {/* Resources Tab */}
@@ -148,7 +230,14 @@ const SettingsPage = () => {
                             variant="contained"
                             startIcon={<AddIcon />}
                             onClick={() => {
-                                setEditingResource({ name: '', email: '', color: '#3498db' });
+                                setEditingResource({
+                                    name: '',
+                                    email: '',
+                                    color: '#3498db',
+                                    availability_start: '2025-10-01',
+                                    availability_end: '2026-01-30',
+                                    allocation_percent: 100,
+                                });
                                 setResourceDialogOpen(true);
                             }}
                         >
@@ -161,6 +250,9 @@ const SettingsPage = () => {
                                 <TableRow>
                                     <TableCell>Name</TableCell>
                                     <TableCell>Email</TableCell>
+                                    <TableCell>Avail. Start</TableCell>
+                                    <TableCell>Avail. End</TableCell>
+                                    <TableCell>Allocation</TableCell>
                                     <TableCell>Color</TableCell>
                                     <TableCell align="right">Actions</TableCell>
                                 </TableRow>
@@ -170,6 +262,11 @@ const SettingsPage = () => {
                                     <TableRow key={resource.id}>
                                         <TableCell>{resource.name}</TableCell>
                                         <TableCell>{resource.email}</TableCell>
+                                        <TableCell>{formatDate(resource.availability_start)}</TableCell>
+                                        <TableCell>{formatDate(resource.availability_end)}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">{resource.allocation_percent}%</Typography>
+                                        </TableCell>
                                         <TableCell>
                                             <Box
                                                 sx={{
@@ -189,6 +286,9 @@ const SettingsPage = () => {
                                                         name: resource.name,
                                                         email: resource.email || '',
                                                         color: resource.color,
+                                                        availability_start: resource.availability_start || '2025-10-01',
+                                                        availability_end: resource.availability_end || '2026-01-30',
+                                                        allocation_percent: resource.allocation_percent ?? 100,
                                                     });
                                                     setResourceDialogOpen(true);
                                                 }}
@@ -414,6 +514,71 @@ const SettingsPage = () => {
                         How dependency lines connect parent and child tasks. End-to-Start connects right side to left side. Bottom-to-Left connects bottom center to left center.
                     </Typography>
                 </TabPanel>
+
+                {/* AI Settings Tab */}
+                <TabPanel value={tabValue} index={4}>
+                    <Typography variant="h6" sx={{ mb: 3 }}>Ollama Configuration</Typography>
+
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 3 }}>
+                        <TextField
+                            label="Ollama Server Port"
+                            value={localPort}
+                            onChange={(e) => setLocalPort(e.target.value)}
+                            size="small"
+                            sx={{ width: 150 }}
+                            helperText="Default: 11435"
+                        />
+                        <Button
+                            variant="contained"
+                            onClick={handleFetchModels}
+                            disabled={isLoadingModels}
+                            startIcon={isLoadingModels ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
+                        >
+                            {isLoadingModels ? 'Connecting...' : 'Connect & Fetch Models'}
+                        </Button>
+                        {connectionStatus === 'connected' && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'success.main' }}>
+                                <CheckCircleIcon fontSize="small" />
+                                <Typography variant="body2">Connected</Typography>
+                            </Box>
+                        )}
+                        {connectionStatus === 'error' && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'error.main' }}>
+                                <ErrorIcon fontSize="small" />
+                                <Typography variant="body2">{connectionError}</Typography>
+                            </Box>
+                        )}
+                    </Box>
+
+                    <FormControl sx={{ minWidth: 300, mb: 3 }} disabled={ollamaModels.length === 0}>
+                        <InputLabel id="model-select-label">Default AI Model</InputLabel>
+                        <Select
+                            labelId="model-select-label"
+                            value={ollamaModel}
+                            label="Default AI Model"
+                            onChange={(e) => dispatch(setOllamaModel(e.target.value))}
+                        >
+                            {ollamaModels.map((model) => (
+                                <MenuItem key={model} value={model}>{model}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    {ollamaModels.length === 0 && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Click "Connect & Fetch Models" to load available models from your Ollama server.
+                        </Typography>
+                    )}
+
+                    <Box sx={{ mt: 4, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>How to use AI Analysis</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            1. Make sure Ollama is running on your machine (port {ollamaPort || '11435'})<br />
+                            2. Connect and select a model above<br />
+                            3. Go to any project → Resources tab<br />
+                            4. Click the "Analyze by AI" button to get resource loading insights
+                        </Typography>
+                    </Box>
+                </TabPanel>
             </Paper>
 
             {/* Resource Dialog */}
@@ -439,7 +604,40 @@ const SettingsPage = () => {
                         onChange={(e) => setEditingResource({ ...editingResource, email: e.target.value })}
                         sx={{ mb: 2 }}
                     />
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+
+                    <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Availability Period</Typography>
+                    <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                        <TextField
+                            label="Start Date"
+                            type="date"
+                            value={editingResource.availability_start}
+                            onChange={(e) => setEditingResource({ ...editingResource, availability_start: e.target.value })}
+                            InputLabelProps={{ shrink: true }}
+                            sx={{ flex: 1 }}
+                        />
+                        <TextField
+                            label="End Date"
+                            type="date"
+                            value={editingResource.availability_end}
+                            onChange={(e) => setEditingResource({ ...editingResource, availability_end: e.target.value })}
+                            InputLabelProps={{ shrink: true }}
+                            sx={{ flex: 1 }}
+                        />
+                    </Box>
+
+                    <TextField
+                        margin="dense"
+                        label="Allocation %"
+                        type="number"
+                        variant="outlined"
+                        value={editingResource.allocation_percent}
+                        onChange={(e) => setEditingResource({ ...editingResource, allocation_percent: Math.max(1, Math.min(100, parseInt(e.target.value) || 100)) })}
+                        inputProps={{ min: 1, max: 100 }}
+                        helperText="Percentage of time resource is allocated (1-100%)"
+                        sx={{ mb: 2, width: 150 }}
+                    />
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
                         <Typography>Color:</Typography>
                         <input
                             type="color"

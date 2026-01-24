@@ -110,7 +110,11 @@ export interface Resource {
     name: string;
     email: string | null;
     color: string;
+    availability_start: string | null;
+    availability_end: string | null;
+    allocation_percent: number;
 }
+
 
 export interface Status {
     id: number;

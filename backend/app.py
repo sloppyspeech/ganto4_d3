@@ -116,14 +116,22 @@ class Resource(db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(200))
     color = db.Column(db.String(7), default='#3498db')
+    # Availability fields
+    availability_start = db.Column(db.Date, default=datetime(2025, 10, 1).date)
+    availability_end = db.Column(db.Date, default=datetime(2026, 1, 30).date)
+    allocation_percent = db.Column(db.Integer, default=100)
 
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
             'email': self.email,
-            'color': self.color
+            'color': self.color,
+            'availability_start': self.availability_start.isoformat() if self.availability_start else '2025-10-01',
+            'availability_end': self.availability_end.isoformat() if self.availability_end else '2026-01-30',
+            'allocation_percent': self.allocation_percent if self.allocation_percent is not None else 100
         }
+
 
 
 class Status(db.Model):
@@ -846,10 +854,22 @@ def get_resources():
 def create_resource():
     """Create a new resource"""
     data = request.get_json()
+    
+    # Parse availability dates if provided
+    availability_start = None
+    availability_end = None
+    if data.get('availability_start'):
+        availability_start = datetime.strptime(data['availability_start'], '%Y-%m-%d').date()
+    if data.get('availability_end'):
+        availability_end = datetime.strptime(data['availability_end'], '%Y-%m-%d').date()
+    
     resource = Resource(
         name=data['name'],
         email=data.get('email'),
-        color=data.get('color', '#3498db')
+        color=data.get('color', '#3498db'),
+        availability_start=availability_start,
+        availability_end=availability_end,
+        allocation_percent=data.get('allocation_percent', 100)
     )
     db.session.add(resource)
     db.session.commit()
@@ -868,6 +888,18 @@ def update_resource(resource_id):
         resource.email = data['email']
     if 'color' in data:
         resource.color = data['color']
+    if 'availability_start' in data:
+        if data['availability_start']:
+            resource.availability_start = datetime.strptime(data['availability_start'], '%Y-%m-%d').date()
+        else:
+            resource.availability_start = None
+    if 'availability_end' in data:
+        if data['availability_end']:
+            resource.availability_end = datetime.strptime(data['availability_end'], '%Y-%m-%d').date()
+        else:
+            resource.availability_end = None
+    if 'allocation_percent' in data:
+        resource.allocation_percent = max(1, min(100, data['allocation_percent']))
     
     db.session.commit()
     return jsonify(resource.to_dict())

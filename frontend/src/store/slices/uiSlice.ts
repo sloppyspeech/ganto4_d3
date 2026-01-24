@@ -8,6 +8,22 @@ export type ResourceViewMode = 'task' | 'complete';
 export type DateFormat = 'DD/MMM/YYYY' | 'DD/MMM/YY' | 'DD/MM/YYYY' | 'DD-MM-YYYY' | 'DD-MMM-YYYY' | 'DD-MMM-YY' | 'DD-MM-YY' | 'DD/MM/YY';
 export type GanttBarStyle = 'default' | 'round-corners';
 export type DependencyLineStyle = 'end-to-start' | 'bottom-to-left';
+export type ResourceLoadingStatus = 'optimal' | 'under-loaded' | 'over-loaded';
+
+export interface TaskOverlap {
+    task1: { task_id: string; description: string };
+    task2: { task_id: string; description: string };
+    overlapDays: number;
+}
+
+export interface ResourceAnalysisResult {
+    status: ResourceLoadingStatus;
+    summary: string;
+    percentage: number;
+    hasOverlaps?: boolean;
+    overlaps?: TaskOverlap[];
+}
+
 
 interface UiState {
     viewMode: ViewMode;
@@ -24,6 +40,12 @@ interface UiState {
     dateFormat: DateFormat;
     ganttBarStyle: GanttBarStyle;
     dependencyLineStyle: DependencyLineStyle;
+    // AI/Ollama settings
+    ollamaPort: string;
+    ollamaModel: string;
+    ollamaModels: string[];
+    aiAnalysisLoading: boolean;
+    resourceAnalysis: Record<string, ResourceAnalysisResult>;
 }
 
 const initialState: UiState = {
@@ -41,6 +63,12 @@ const initialState: UiState = {
     dateFormat: (localStorage.getItem('dateFormat') as DateFormat) || 'DD-MMM-YYYY',
     ganttBarStyle: (localStorage.getItem('ganttBarStyle') as GanttBarStyle) || 'default',
     dependencyLineStyle: (localStorage.getItem('dependencyLineStyle') as DependencyLineStyle) || 'end-to-start',
+    // AI/Ollama settings
+    ollamaPort: localStorage.getItem('ollamaPort') || '11435',
+    ollamaModel: localStorage.getItem('ollamaModel') || '',
+    ollamaModels: [],
+    aiAnalysisLoading: false,
+    resourceAnalysis: {},
 };
 
 const uiSlice = createSlice({
@@ -103,6 +131,27 @@ const uiSlice = createSlice({
             state.enableDoubleClickEdit = !state.enableDoubleClickEdit;
             localStorage.setItem('enableDoubleClickEdit', state.enableDoubleClickEdit.toString());
         },
+        // AI/Ollama actions
+        setOllamaPort: (state, action: PayloadAction<string>) => {
+            state.ollamaPort = action.payload;
+            localStorage.setItem('ollamaPort', action.payload);
+        },
+        setOllamaModel: (state, action: PayloadAction<string>) => {
+            state.ollamaModel = action.payload;
+            localStorage.setItem('ollamaModel', action.payload);
+        },
+        setOllamaModels: (state, action: PayloadAction<string[]>) => {
+            state.ollamaModels = action.payload;
+        },
+        setAiAnalysisLoading: (state, action: PayloadAction<boolean>) => {
+            state.aiAnalysisLoading = action.payload;
+        },
+        setResourceAnalysis: (state, action: PayloadAction<Record<string, ResourceAnalysisResult>>) => {
+            state.resourceAnalysis = action.payload;
+        },
+        clearResourceAnalysis: (state) => {
+            state.resourceAnalysis = {};
+        },
     },
 });
 
@@ -122,5 +171,11 @@ export const {
     setDateFormat,
     setGanttBarStyle,
     setDependencyLineStyle,
+    setOllamaPort,
+    setOllamaModel,
+    setOllamaModels,
+    setAiAnalysisLoading,
+    setResourceAnalysis,
+    clearResourceAnalysis,
 } = uiSlice.actions;
 export default uiSlice.reducer;

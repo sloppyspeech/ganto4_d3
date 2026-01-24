@@ -1,9 +1,14 @@
-import { useEffect, useRef, useMemo, useCallback } from 'react';
-import { Box, Typography, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { useEffect, useRef, useMemo, useCallback, useState } from 'react';
+import { Box, Typography, ToggleButton, ToggleButtonGroup, Button, Tooltip, CircularProgress, Chip, Snackbar, Alert } from '@mui/material';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import * as d3 from 'd3';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { toggleTodayLine, setResourceViewMode, ResourceViewMode } from '../store/slices/uiSlice';
+import { toggleTodayLine, setResourceViewMode, ResourceViewMode, setAiAnalysisLoading, setResourceAnalysis, clearResourceAnalysis, type ResourceAnalysisResult } from '../store/slices/uiSlice';
 import type { Task } from '../api/api';
+import { analyzeResources } from '../api/ollamaApi';
 
 const ROW_HEIGHT = 36;
 const HEADER_ROW_0 = 20;
@@ -27,7 +32,11 @@ const ResourceGanttChart = () => {
     const dispatch = useAppDispatch();
     const { items: tasks } = useAppSelector((state) => state.tasks);
     const { resources, statuses } = useAppSelector((state) => state.settings);
-    const { viewMode, themeMode, showTodayLine, showWeekends, resourceViewMode, ganttBarStyle } = useAppSelector((state) => state.ui);
+    const { viewMode, themeMode, showTodayLine, showWeekends, resourceViewMode, ganttBarStyle, ollamaPort, ollamaModel, aiAnalysisLoading, resourceAnalysis } = useAppSelector((state) => state.ui);
+    const { currentProject } = useAppSelector((state) => state.projects);
+
+    // Local state for error handling
+    const [analysisError, setAnalysisError] = useState<string | null>(null);
 
     const colors = useMemo(() => ({
         headerBg: themeMode === 'dark' ? '#1e293b' : '#e2e8f0',
@@ -419,6 +428,109 @@ const ResourceGanttChart = () => {
         }
     };
 
+    // Handle AI analysis
+    const handleAnalyzeResources = async () => {
+        if (!ollamaModel) {
+            setAnalysisError('No AI model configured. Please go to Settings → AI Settings to configure Ollama.');
+            return;
+        }
+
+        dispatch(setAiAnalysisLoading(true));
+        dispatch(clearResourceAnalysis());
+        setAnalysisError(null);
+
+        try {
+            const results = await analyzeResources(
+                ollamaPort,
+                ollamaModel,
+                tasks,
+                currentProject?.start_date || null,
+                currentProject?.end_date || null,
+                resources // Pass resources data for availability calculations
+            );
+            dispatch(setResourceAnalysis(results));
+        } catch (error) {
+            setAnalysisError(error instanceof Error ? error.message : 'Analysis failed');
+            dispatch(clearResourceAnalysis());
+        } finally {
+            dispatch(setAiAnalysisLoading(false));
+        }
+    };
+
+    // Resource status indicator component
+    const ResourceStatusIndicator = ({ resourceName }: { resourceName: string }) => {
+        const analysis = resourceAnalysis[resourceName];
+        if (!analysis) return null;
+
+        const statusConfig = {
+            'optimal': {
+                color: '#10b981',
+                bgColor: 'rgba(16, 185, 129, 0.15)',
+                icon: <CheckCircleIcon sx={{ fontSize: 14 }} />,
+                label: 'Optimal'
+            },
+            'under-loaded': {
+                color: '#3b82f6', // Blue for under (has spare capacity)
+                bgColor: 'rgba(59, 130, 246, 0.15)',
+                icon: <WarningIcon sx={{ fontSize: 14 }} />,
+                label: 'Under'
+            },
+            'over-loaded': {
+                color: '#ef4444',
+                bgColor: 'rgba(239, 68, 68, 0.15)',
+                icon: <ErrorOutlineIcon sx={{ fontSize: 14 }} />,
+                label: 'Over'
+            }
+        };
+
+        const config = statusConfig[analysis.status];
+        const roundedPercent = Math.round(analysis.percentage);
+
+        // Build tooltip content
+        let tooltipContent = `${roundedPercent}% - ${analysis.summary}`;
+        if (analysis.hasOverlaps && analysis.overlaps && analysis.overlaps.length > 0) {
+            tooltipContent += `\n\n⚠️ OVERLAPPING TASKS:\n` +
+                analysis.overlaps.map(o =>
+                    `• ${o.task1.task_id} ↔ ${o.task2.task_id} (${o.overlapDays} days)`
+                ).join('\n');
+        }
+
+        return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>{tooltipContent}</span>} arrow placement="right">
+                    <Chip
+                        size="small"
+                        icon={config.icon}
+                        label={`${roundedPercent}%`}
+
+                        sx={{
+                            height: 22,
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            color: config.color,
+                            bgcolor: config.bgColor,
+                            border: `1px solid ${config.color}`,
+                            '& .MuiChip-icon': {
+                                color: config.color,
+                                marginLeft: '6px',
+                                marginRight: '-2px',
+                            },
+                            '& .MuiChip-label': {
+                                padding: '0 8px 0 6px',
+                            },
+                        }}
+
+                    />
+                </Tooltip>
+                {analysis.hasOverlaps && (
+                    <Tooltip title="Has overlapping tasks" arrow>
+                        <WarningIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
+                    </Tooltip>
+                )}
+            </Box>
+        );
+    };
+
     if (tasks.length === 0) {
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', bgcolor: 'background.default' }}>
@@ -429,7 +541,7 @@ const ResourceGanttChart = () => {
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default' }}>
-            {/* Mode Toggle */}
+            {/* Mode Toggle and AI Button */}
             <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="caption" color="text.secondary">View:</Typography>
                 <ToggleButtonGroup
@@ -447,12 +559,85 @@ const ResourceGanttChart = () => {
                     <ToggleButton value="task">Task</ToggleButton>
                     <ToggleButton value="complete">Complete</ToggleButton>
                 </ToggleButtonGroup>
+
+                <Box sx={{ flex: 1 }} />
+
+                {/* AI Analysis Button */}
+                <Tooltip title={ollamaModel ? `Analyze with ${ollamaModel}` : 'Configure AI model in Settings → AI Settings'}>
+                    <span>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleAnalyzeResources}
+                            disabled={aiAnalysisLoading || !ollamaModel}
+                            startIcon={aiAnalysisLoading ? <CircularProgress size={14} color="inherit" /> : <AutoAwesomeIcon />}
+                            sx={{
+                                textTransform: 'none',
+                                fontSize: '0.75rem',
+                                borderColor: 'rgba(99, 102, 241, 0.5)',
+                                color: '#818cf8',
+                                '&:hover': {
+                                    borderColor: '#818cf8',
+                                    bgcolor: 'rgba(99, 102, 241, 0.1)',
+                                },
+                                '&.Mui-disabled': {
+                                    borderColor: 'rgba(99, 102, 241, 0.2)',
+                                },
+                            }}
+                        >
+                            {aiAnalysisLoading ? 'Analyzing...' : 'Analyze by AI'}
+                        </Button>
+                    </span>
+                </Tooltip>
+
+                {/* Clear Analysis Button */}
+                {Object.keys(resourceAnalysis).length > 0 && (
+                    <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => dispatch(clearResourceAnalysis())}
+                        sx={{
+                            textTransform: 'none',
+                            fontSize: '0.7rem',
+                            color: 'text.secondary',
+                            minWidth: 'auto',
+                        }}
+                    >
+                        Clear
+                    </Button>
+                )}
             </Box>
+
+            {/* Analysis Status Chips */}
+            {Object.keys(resourceAnalysis).length > 0 && (
+                <Box sx={{ px: 1, py: 0.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexWrap: 'wrap', gap: 1, bgcolor: 'action.hover' }}>
+                    {resourceGroups.map(group => (
+                        <Box key={group.resource} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
+                                {group.resource}:
+                            </Typography>
+                            <ResourceStatusIndicator resourceName={group.resource} />
+                        </Box>
+                    ))}
+                </Box>
+            )}
 
             {/* Chart */}
             <Box ref={containerRef} sx={{ flexGrow: 1, overflow: 'auto' }}>
                 <svg ref={svgRef} style={{ display: 'block' }} />
             </Box>
+
+            {/* Error Snackbar */}
+            <Snackbar
+                open={!!analysisError}
+                autoHideDuration={6000}
+                onClose={() => setAnalysisError(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert onClose={() => setAnalysisError(null)} severity="error" sx={{ width: '100%' }}>
+                    {analysisError}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };
